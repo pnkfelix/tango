@@ -528,5 +528,5 @@ mod md2rs;
 mod rs2md;
 
 #[cfg(test)]
-mod tests;
+mod testing;
 
