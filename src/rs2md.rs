@@ -1,4 +1,4 @@
-use std::io::{self, Read, BufRead, BufReader, Write};
+use std::io::{self, Read, BufRead, Write};
 
 pub struct Converter { output_state: State, blank_line_count: usize }
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -80,19 +80,19 @@ impl Converter {
     }
 
     fn nonblank_line(&mut self, line: &str, w: &mut Write) -> io::Result<()> {
-        for i in 0..self.blank_line_count {
+        for _ in 0..self.blank_line_count {
             try!(self.effect(Effect::BlankLn, w));
         }
         self.blank_line_count = 0;
         self.effect(Effect::WriteLn(line), w)
     }
 
-    fn blank_line(&mut self, w: &mut Write) -> io::Result<()> {
+    fn blank_line(&mut self, _w: &mut Write) -> io::Result<()> {
         self.blank_line_count += 1;
         Ok(())
     }
 
-    fn finish_section(&mut self, w: &mut Write) -> io::Result<()> {
+    fn finish_section(&mut self, _w: &mut Write) -> io::Result<()> {
         Ok(())
     }
 
@@ -101,22 +101,22 @@ impl Converter {
             State::MarkdownFirstLine => {
                 assert_eq!(self.output_state, State::Rust);
                 try!(self.effect(Effect::FinisCodeBlock, w));
-                for i in 0..self.blank_line_count {
+                for _ in 0..self.blank_line_count {
                     try!(self.effect(Effect::BlankLn, w));
                 }
                 self.blank_line_count = 0;
             }
             State::MarkdownLines => {
                 assert_eq!(self.output_state, State::MarkdownFirstLine);
-                for i in 0..self.blank_line_count {
+                for _ in 0..self.blank_line_count {
                     try!(self.effect(Effect::BlankLitComment, w));
                 }
                 self.blank_line_count = 0;
             }
             State::Rust => {
                 assert!(self.output_state != State::Rust);
-                self.finish_section(w);
-                for i in 0..self.blank_line_count {
+                try!(self.finish_section(w));
+                for _ in 0..self.blank_line_count {
                     try!(self.effect(Effect::BlankLn, w));
                 }
                 self.blank_line_count = 0;

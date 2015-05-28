@@ -1,7 +1,6 @@
 extern crate tango;
 
 use std::error::Error;
-use std::fs;
 
 pub fn main() {
     tango::process_root().unwrap_or_else(|e| {

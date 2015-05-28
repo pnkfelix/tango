@@ -1,4 +1,4 @@
-use std::io::{self, Read, BufRead, BufReader, Write};
+use std::io::{self, Read, BufRead, Write};
 
 pub struct Converter { state: State, blank_line_count: usize }
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -21,12 +21,10 @@ impl Converter {
         match (self.state, &line.chars().take(7).collect::<String>()[..]) {
             (State::MarkdownBlank, "```rust") |
             (State::MarkdownText, "```rust") => {
-                self.transition(w, State::Rust);
-                Ok(())
+                self.transition(w, State::Rust)
             }
             (State::Rust, "```") => {
-                self.transition(w, State::MarkdownBlank);
-                Ok(())
+                self.transition(w, State::MarkdownBlank)
             }
 
             // FIXME: accum blank lines and only emit them with
@@ -34,8 +32,7 @@ impl Converter {
             // emit them with no prefix. (This is in part the
             // motivation for the `fn finish_section` design.)
             (_, "") => {
-                self.blank_line(w);
-                Ok(())
+                self.blank_line(w)
             }
 
             _ => {
@@ -50,7 +47,7 @@ impl Converter {
             State::MarkdownText => ("//@", "//@ "),
             State::Rust => ("", ""),
         };
-        for i in 0..self.blank_line_count {
+        for _ in 0..self.blank_line_count {
             try!(writeln!(w, "{}", blank_prefix));
 
         }
@@ -66,13 +63,13 @@ impl Converter {
         writeln!(w, "{}{}", line_prefix, line)
     }
 
-    fn blank_line(&mut self, w: &mut Write) -> io::Result<()> {
+    fn blank_line(&mut self, _w: &mut Write) -> io::Result<()> {
         self.blank_line_count += 1;
         Ok(())
     }
 
     fn finish_section(&mut self, w: &mut Write) -> io::Result<()> {
-        for i in 0..self.blank_line_count {
+        for _ in 0..self.blank_line_count {
             try!(writeln!(w, ""));
         }
         self.blank_line_count = 0;
@@ -86,11 +83,11 @@ impl Converter {
             }
             State::MarkdownText => {
                 assert_eq!(self.state, State::MarkdownBlank);
-                self.finish_section(w);
+                try!(self.finish_section(w));
             }
             State::MarkdownBlank => {
                 assert_eq!(self.state, State::Rust);
-                self.finish_section(w);
+                try!(self.finish_section(w));
             }
         }
         self.state = s;
