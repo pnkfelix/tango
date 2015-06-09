@@ -10,8 +10,12 @@ use std::ops;
 use std::path::{Path, PathBuf};
 
 pub const STAMP: &'static str = "tango.stamp";
-pub const SRC: &'static str = "src";
-pub const LIT: &'static str = "lit";
+pub const SRC_DIR: &'static str = "src";
+
+// pnkfelix wanted the `LIT_DIR` to be `lit/`, but `cargo build`
+// currently assumes that *all* build sources live in `src/`. So it
+// is easier for now to just have the two directories be the same.
+pub const LIT_DIR: &'static str = "src";
 
 #[derive(Debug)]
 pub enum Error {
@@ -190,12 +194,12 @@ fn check_path(typename: &str, p: &Path, ext: &str, root: &str) {
 
 impl RsPath {
     fn new(p: PathBuf) -> RsPath {
-        check_path("RsPath", &p, "rs", "src");
+        check_path("RsPath", &p, "rs", SRC_DIR);
         RsPath(p)
     }
     fn to_md(&self) -> MdPath {
         let mut p = PathBuf::new();
-        p.push("lit");
+        p.push(LIT_DIR);
         for c in self.0.components().skip(1) { p.push(c.as_ref().to_str().expect("how else can I replace root?")); }
         p.set_extension("md");
         MdPath::new(p)
@@ -204,12 +208,12 @@ impl RsPath {
 
 impl MdPath {
     fn new(p: PathBuf) -> MdPath {
-        check_path("MdPath", &p, "md", "lit");
+        check_path("MdPath", &p, "md", LIT_DIR);
         MdPath(p)
     }
     fn to_rs(&self) -> RsPath {
         let mut p = PathBuf::new();
-        p.push("src");
+        p.push(SRC_DIR);
         for c in self.0.components().skip(1) { p.push(c.as_ref().to_str().expect("how else can I replace root?")); }
         p.set_extension("rs");
         RsPath::new(p)
@@ -387,8 +391,8 @@ impl Context {
 
     #[cfg(not_now)]
     fn report_dir(&self, p: &Path) -> Result<()> {
-        let src_path = Path::new(SRC);
-        let lit_path = Path::new(LIT);
+        let src_path = Path::new(SRC_DIR);
+        let lit_path = Path::new(LIT_DIR);
 
         for (i, ent) in try!(fs::walk_dir(p)).enumerate() {
             let ent = try!(ent);
@@ -418,8 +422,8 @@ impl Context {
     }
 
     fn gather_inputs(&mut self) -> Result<()> {
-        let src_path = Path::new(SRC);
-        let lit_path = Path::new(LIT);
+        let src_path = Path::new(SRC_DIR);
+        let lit_path = Path::new(LIT_DIR);
 
         for ent in try!(fs::walk_dir(src_path)) {
             let ent = try!(ent);

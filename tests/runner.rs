@@ -108,11 +108,12 @@ impl<X, Y:Error> UnwrapOrPanic for Result<X, Y> {
 fn setup_src_and_lit_dirs() {
     CURRENT_DIR_PREFIX.with(|p| {
         let mut p_src = p.clone();
-        p_src.push(tango::SRC);
+        p_src.push(tango::SRC_DIR);
+        fs::create_dir(p_src).unwrap_or_panic(&format!("failed to create {}", tango::SRC_DIR));
+        if tango::LIT_DIR == tango::SRC_DIR { return; }
         let mut p_lit = p.clone();
-        p_lit.push(tango::LIT);
-        fs::create_dir(p_src).unwrap_or_panic("failed to create src/");
-        fs::create_dir(p_lit).unwrap_or_panic("failed to create lit/");
+        p_lit.push(tango::LIT_DIR);
+        fs::create_dir(p_lit).unwrap_or_panic(&format!("failed to create {}", tango::LIT_DIR));
     })
 }
 
@@ -124,8 +125,8 @@ impl Target {
             let mut p = p.clone();
             match *self {
                 Target::Root => {}
-                Target::Src => p.push(tango::SRC),
-                Target::Lit => p.push(tango::LIT),
+                Target::Src => p.push(tango::SRC_DIR),
+                Target::Lit => p.push(tango::LIT_DIR),
             }
             p.push(filename);
             p
