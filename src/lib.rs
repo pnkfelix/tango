@@ -464,15 +464,17 @@ impl Context {
         Ok(())
     }
     fn generate_content(&mut self) -> Result<()> {
-        for &Transform { ref original, ref generate, .. } in &self.src_inputs {
+        for &Transform { ref original, ref generate, source_time, .. } in &self.src_inputs {
             let source = try!(File::open(&original.0));
             let target = try!(File::create(&generate.0));
             try!(rs2md(source, target));
+            try!(fs::set_file_times(&generate.0, source_time, source_time));
         }
-        for &Transform { ref original, ref generate, .. } in &self.lit_inputs {
+        for &Transform { ref original, ref generate, source_time, .. } in &self.lit_inputs {
             let source = try!(File::open(&original.0));
             let target = try!(File::create(&generate.0));
             try!(md2rs(source, target));
+            try!(fs::set_file_times(&generate.0, source_time, source_time));
         }
         Ok(())
     }
