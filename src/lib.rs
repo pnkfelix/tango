@@ -276,40 +276,39 @@ pub mod check {
     pub type PathTransform = Transform<PathBuf, PathBuf>;
     #[derive(Debug)]
     pub enum ErrorKind {
-        TargetYoungerThanOriginal,
+        TargetYoungerThanOriginal { tgt: String, src: String },
         NoTangoStampExists,
-        TangoStampOlderThanTarget,
+        TangoStampOlderThanTarget { tgt: String },
     }
     #[derive(Debug)]
     pub struct Error(ErrorKind, PathTransform);
 
     impl fmt::Display for Error {
         fn fmt(&self, w: &mut fmt::Formatter) -> fmt::Result {
-            let s = match self.0 {
-                ErrorKind::TargetYoungerThanOriginal => {
-                    "target is younger than source"
+            match self.0 {
+                ErrorKind::TargetYoungerThanOriginal { ref tgt, ref src } => {
+                    write!(w, "target {} is younger than source {}", tgt, src)
                 }
                 ErrorKind::NoTangoStampExists => {
-                    "both source and target exist but no `tango.stamp` is present"
+                    write!(w, "both source and target exist but no `tango.stamp` is present")
                 }
-                ErrorKind::TangoStampOlderThanTarget => {
-                    "`tango.stamp` is older than target"
+                ErrorKind::TangoStampOlderThanTarget { ref tgt } => {
+                    write!(w, "`tango.stamp` is older than target {}", tgt)
                 }
-            };
-            write!(w, "{}", s)
+            }
         }
     }
 
     impl ErrorTrait for Error {
         fn description(&self) -> &str {
             match self.0 {
-                ErrorKind::TargetYoungerThanOriginal => {
+                ErrorKind::TargetYoungerThanOriginal { .. }=> {
                     "target is younger than source"
                 }
                 ErrorKind::NoTangoStampExists => {
                     "both source and target exist but no `tango.stamp` is present"
                 }
-                ErrorKind::TangoStampOlderThanTarget => {
+                ErrorKind::TangoStampOlderThanTarget { .. } => {
                     "`tango.stamp` is older than target"
                 }
             }
@@ -331,6 +330,8 @@ pub mod check {
         }
     }
 }
+
+enum TransformNeed { Needed, Unneeded, }
 
 impl Context {
     fn new(opt_stamp: Option<File>) -> Result<Context> {
@@ -354,7 +355,7 @@ impl Context {
         Ok(c)
     }
 
-    fn check_transform<X, Y>(&self, t: &Transform<X, Y>) -> check::Result<()>
+    fn check_transform<X, Y>(&self, t: &Transform<X, Y>) -> check::Result<TransformNeed>
         where X: ops::Deref<Target=Path> + Mtime,
               Y: ops::Deref<Target=Path> + Mtime,
     {
@@ -364,29 +365,33 @@ impl Context {
             MtimeResult::Modified(t) => t,
             MtimeResult::NonExistant => {
                 assert!(!t.generate.exists());
-                return Ok(());
+                return Ok(TransformNeed::Needed);
             }
         };
-        let g_mod = t.source_time;
-        if g_mod > t_mod {
-            return Err(t.error(TargetYoungerThanOriginal));
-        } else { // g_mod <= t_mod
+        let src = t.original.display().to_string();
+        let tgt = t.generate.display().to_string();
+        let s_mod = t.source_time;
+        if t_mod > s_mod {
+            return Ok(TransformNeed::Unneeded);
+        } else { // s_mod <= t_mod
             match self.orig_stamp {
                 None => return Err(t.error(NoTangoStampExists)),
                 Some((_, stamp_time)) => {
-                    if stamp_time < g_mod {
-                        return Err(t.error(TangoStampOlderThanTarget));
+                    if stamp_time < t_mod {
+                        return Err(t.error(TangoStampOlderThanTarget {
+                            tgt: t.generate.display().to_string(),
+                        }));
                     }
                 }
             }
         }
 
         // Invariant:
-        // Target `g` exists, but,
-        // g_mod <= t_mod (and g_mod < stamp_time if stamp exists).
+        // Target `t` exists, but,
+        // s_mod >= t_mod (and t_mod <= stamp_time if stamp exists).
         //
-        // Thus it is safe to overwrite `g` based on source content.
-        Ok(())
+        // Thus it is safe to overwrite `t` based on source content.
+        return Ok(TransformNeed::Needed);
     }
 
     #[cfg(not_now)]
@@ -434,7 +439,8 @@ impl Context {
             let rs = RsPath::new(p);
             let t = try!(rs.transform());
             match self.check_transform(&t) {
-                Ok(()) => self.push_src(t),
+                Ok(TransformNeed::Needed) => self.push_src(t),
+                Ok(TransformNeed::Unneeded) => {}
                 Err(e) => {
                     println!("gather_inputs err: {}", e.description());
                     return Err(Error::CheckInputError {
@@ -452,7 +458,8 @@ impl Context {
             let md = MdPath::new(p);
             let t = try!(md.transform());
             match self.check_transform(&t) {
-                Ok(()) => self.push_lit(t),
+                Ok(TransformNeed::Needed) => self.push_lit(t),
+                Ok(TransformNeed::Unneeded) => {}
                 Err(e) => {
                     println!("gather_inputs err: {}", e.description());
                     return Err(Error::CheckInputError {
