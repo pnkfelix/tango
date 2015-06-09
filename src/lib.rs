@@ -278,7 +278,7 @@ pub mod check {
     pub enum ErrorKind {
         TargetYoungerThanOriginal,
         NoTangoStampExists,
-        TangoStampNotOlderThanTarget,
+        TangoStampOlderThanTarget,
     }
     #[derive(Debug)]
     pub struct Error(ErrorKind, PathTransform);
@@ -292,8 +292,8 @@ pub mod check {
                 ErrorKind::NoTangoStampExists => {
                     "both source and target exist but no `tango.stamp` is present"
                 }
-                ErrorKind::TangoStampNotOlderThanTarget => {
-                    "target is younger than `tango.stamp`"
+                ErrorKind::TangoStampOlderThanTarget => {
+                    "`tango.stamp` is older than target"
                 }
             };
             write!(w, "{}", s)
@@ -309,8 +309,8 @@ pub mod check {
                 ErrorKind::NoTangoStampExists => {
                     "both source and target exist but no `tango.stamp` is present"
                 }
-                ErrorKind::TangoStampNotOlderThanTarget => {
-                    "target is younger than `tango.stamp`"
+                ErrorKind::TangoStampOlderThanTarget => {
+                    "`tango.stamp` is older than target"
                 }
             }
         }
@@ -374,8 +374,8 @@ impl Context {
             match self.orig_stamp {
                 None => return Err(t.error(NoTangoStampExists)),
                 Some((_, stamp_time)) => {
-                    if stamp_time <= g_mod {
-                        return Err(t.error(TangoStampNotOlderThanTarget));
+                    if stamp_time < g_mod {
+                        return Err(t.error(TangoStampOlderThanTarget));
                     }
                 }
             }
