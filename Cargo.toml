@@ -3,14 +3,25 @@ name = "tango"
 version = "0.1.0"
 authors = ["Felix S. Klock II <pnkfelix@pnkfx.org>"]
 
+## Every time I tried to get `debug!` working with `cargo test` I am
+## flummoxed. Not sure what my problem is, but for now these are not
+## enough on their own, so I am leaving them out of the checked-in
+## version.
+##
+# [dependencies]
+# log = "*"
+# env_logger = "*"
+
 ## dev-dependencies are only pulled in for tests/benchmarks
 [dev-dependencies]
 tempdir = "0.3"
 
 [[test]]
 name = "runner"
+##
 ## Can set below to stop passing `--test` when compiling runner.rs
 ## (and thus use a `fn main` within it as its associated test driver).
 ## But for now I am trying to work within the integrated testing framework,
 ## which means in part avoiding global state like `env::set_current_dir`
+##
 # harness = false

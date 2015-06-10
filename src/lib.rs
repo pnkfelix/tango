@@ -1,5 +1,9 @@
 #![feature(dir_entry_ext, fs_time, fs_walk, path_ext, file_path)]
 
+// #[macro_use]
+// extern crate log;
+// extern crate env_logger;
+
 use std::convert;
 use std::env;
 use std::error::Error as ErrorTrait;
