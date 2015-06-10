@@ -368,8 +368,8 @@ impl Context {
                 return Ok(TransformNeed::Needed);
             }
         };
-        let src = t.original.display().to_string();
-        let tgt = t.generate.display().to_string();
+        // let src = t.original.display().to_string();
+        // let tgt = t.generate.display().to_string();
         let s_mod = t.source_time;
         if t_mod > s_mod {
             return Ok(TransformNeed::Unneeded);
@@ -430,13 +430,50 @@ impl Context {
         let src_path = Path::new(SRC_DIR);
         let lit_path = Path::new(LIT_DIR);
 
+        fn keep_file_name(p: &Path) -> std::result::Result<(), &'static str> {
+            match p.file_name().and_then(|x|x.to_str()) {
+                None =>
+                    Err("file name is not valid unicode"),
+                Some(s) if s.starts_with(".") =>
+                    Err("file name has leading period"),
+                Some(..) =>
+                    Ok(()),
+            }
+        }
+
+        fn warn_if_nonexistant<M:Mtime+fmt::Debug>(m: &M) -> Result<()> {
+            match m.modified() {
+                Err(e) => Err(e),
+                Ok(MtimeResult::Modified(..)) => Ok(()),
+                Ok(MtimeResult::NonExistant) => {
+                    // This can arise; namely some tools are
+                    // generating symlinks in `src` of the form
+                    //
+                    // `src/.#lib.md -> fklock@fklock-Oenone.local.96195`
+                    //
+                    // where the target is non-existant (presumably as
+                    // a way to locally mark a file as being open by
+                    // the tool?), and then this script interprets it
+                    // as being open.
+                    println!("warning: non-existant source: {:?}", m);
+                    Ok(())
+                }
+            }
+
+        }
+
         for ent in try!(fs::walk_dir(src_path)) {
             let ent = try!(ent);
             let p = ent.path();
+            if let Err(why) = keep_file_name(p.as_path()) {
+                println!("skipping {}; {}", p.display(), why);
+                continue;
+            }
             if !p.rs_extension() {
                 continue;
             }
             let rs = RsPath::new(p);
+            try!(warn_if_nonexistant(&rs));
             let t = try!(rs.transform());
             match self.check_transform(&t) {
                 Ok(TransformNeed::Needed) => self.push_src(t),
@@ -452,10 +489,15 @@ impl Context {
         for ent in try!(fs::walk_dir(lit_path)) {
             let ent = try!(ent);
             let p = ent.path();
+            if let Err(why) = keep_file_name(p.as_path()) {
+                println!("skipping {}; {}", p.display(), why);
+                continue;
+            }
             if !p.md_extension() {
                 continue;
             }
             let md = MdPath::new(p);
+            try!(warn_if_nonexistant(&md));
             let t = try!(md.transform());
             match self.check_transform(&t) {
                 Ok(TransformNeed::Needed) => self.push_lit(t),
