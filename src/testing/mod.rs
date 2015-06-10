@@ -172,3 +172,13 @@ fn test_hello3_md2rs() {
 fn test_hello3_rs2md() {
     core_test_rs2md(test_snippets::HELLO3_RS, test_snippets::HELLO3_MD);
 }
+
+#[test]
+fn test_hello4_md2rs() {
+    core_test_md2rs(test_snippets::HELLO4_MD, test_snippets::HELLO4_RS);
+}
+
+#[test]
+fn test_hello4_rs2md() {
+    core_test_rs2md(test_snippets::HELLO4_RS, test_snippets::HELLO4_MD);
+}

@@ -58,6 +58,21 @@ impl Converter {
             } else {
                 self.nonblank_line(line, w)
             }
+        } else if line_right.starts_with("//@") {
+            let line = &line_right[3..];
+            match self.output_state {
+                State::Rust =>
+                    try!(self.transition(w, State::MarkdownFirstLine)),
+                State::MarkdownFirstLine =>
+                    try!(self.transition(w, State::MarkdownLines)),
+                State::MarkdownLines =>
+                {}
+            }
+            if line.trim().len() == 0 {
+                self.blank_line(w)
+            } else {
+                self.nonblank_line(line, w)
+            }
         } else {
             match self.output_state {
                 State::MarkdownFirstLine |

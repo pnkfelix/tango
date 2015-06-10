@@ -77,3 +77,15 @@ It spans ...
 fn hello() { println!("Hello World"); }
 ```
 "#;
+
+pub const HELLO4_MD: &'static str = r#"# Hello World
+Here is some expository text, but this one ...
+
+... has a gap between its lines.
+"#;
+
+pub const HELLO4_RS: &'static str = r#"//@ # Hello World
+//@ Here is some expository text, but this one ...
+//@
+//@ ... has a gap between its lines.
+"#;
