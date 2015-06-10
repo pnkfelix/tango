@@ -226,7 +226,7 @@ trait Transforms: Sized + Mtime + fmt::Debug {
     fn transform(self) -> Result<Transform<Self, Self::Target>> {
         let source_time = match self.modified() {
             Ok(MtimeResult::Modified(t)) => t,
-            Ok(MtimeResult::NonExistant) => panic!("impossible"),
+            Ok(MtimeResult::NonExistant) => panic!("impossible for {:?} to be NonExistant", self),
             Err(e) => {
                 println!("failure to extract mtime on source {:?}", self);
                 return Err(e);
