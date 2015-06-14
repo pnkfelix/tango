@@ -89,3 +89,28 @@ pub const HELLO4_RS: &'static str = r#"//@ # Hello World
 //@
 //@ ... has a gap between its lines.
 "#;
+
+pub const PRODIGAL5_MD: &'static str = r#"# Hello World
+```rust
+let code_fragment;
+```
+	
+This looks like it has a nice para break before its starts,
+but note the tab
+"#;
+
+pub const HARVEST5_RS: &'static str = r#"//@ # Hello World
+let code_fragment;
+//@ 	
+//@ This looks like it has a nice para break before its starts,
+//@ but note the tab
+"#;
+
+pub const RETURN5_MD: &'static str = r#"# Hello World
+```rust
+let code_fragment;
+```
+
+This looks like it has a nice para break before its starts,
+but note the tab
+"#;

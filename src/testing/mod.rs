@@ -182,3 +182,13 @@ fn test_hello4_md2rs() {
 fn test_hello4_rs2md() {
     core_test_rs2md(test_snippets::HELLO4_RS, test_snippets::HELLO4_MD);
 }
+
+#[test]
+fn test_prodigal5_md2rs() {
+   core_test_md2rs(test_snippets::PRODIGAL5_MD, test_snippets::HARVEST5_RS);
+}
+
+#[test]
+fn test_prodigal5return_md2rs() {
+   core_test_rs2md(test_snippets::HARVEST5_RS, test_snippets::RETURN5_MD);
+}
