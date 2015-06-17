@@ -20,6 +20,8 @@ const BINARY_FILENAME: &'static str = "tango";
 const PRESERVE_TEMP_DIRS: bool = false;
 const REPORT_DIR_CONTENTS: bool = false;
 
+const REJECT_IF_TANGO_AFFECTS_STD_PORTS: bool = true;
+
 fn out_path() -> PathBuf {
     let out_dir = env::var("OUT_DIR").unwrap_or_else(|_| {
         panic!("tango tests expect `cargo` to set OUT_DIR; \
@@ -146,6 +148,22 @@ fn create_file(t: Target, filename: &str, content: &str, timestamp: u64) -> io::
     fs::set_file_times(p, timestamp, timestamp)
 }
 
+fn touch_file(t: Target, filename: &str, timestamp: u64) -> Result<(), TangoRunError> {
+    let p = t.path_buf(filename);
+    let p = p.as_path();
+    assert!(p.exists(), "path {:?} should exist", p);
+    println!("touch path {} t {}  pre: {} ", p.display(), timestamp,
+             try!(p.metadata()).modified());
+    let ret = fs::set_file_times(p, timestamp, timestamp).map_err(TangoRunError::IoError);
+    let p = t.path_buf(filename);
+    let p = p.as_path();
+    // let f = try!(File::open(p));
+    // try!(f.sync_all());
+    println!("touch path {} t {} post: {} ", p.display(), timestamp,
+             try!(p.metadata()).modified());
+    ret
+}
+
 const HELLO_WORLD_RS: &'static str = "
 fn main() { println!(\"Hello World\"); }
 ";
@@ -220,7 +238,9 @@ fn run_tango() -> Result<(), TangoRunError> {
             };
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
-        if stdout.len() > 0 || stderr.len() > 0 {
+        if REJECT_IF_TANGO_AFFECTS_STD_PORTS &&
+            stdout.len() > 0 || stderr.len() > 0
+        {
             return Err(TangoRunError::SawOutput {
                 stdout_len: stdout.len(),
                 stderr_len: stderr.len(),
@@ -229,6 +249,13 @@ fn run_tango() -> Result<(), TangoRunError> {
                 combined: format!("output on stderr: `{err}`, stdout: `{out}`",
                                   err=stderr, out=stdout),
             });
+        } else {
+            for line in stdout.lines() {
+                println!("stdout: {}", line);
+            }
+            for line in stderr.lines() {
+                println!("stderr: {}", line);
+            }
         }
         Ok(())
     })
@@ -285,19 +312,19 @@ fn framework<S, PR, RUN, PO>(test: Test<S, PR, RUN, PO>) -> Result<(), TangoRunE
 {
     within_temp_dir(test.name, move || -> Result<(), TangoRunError> {
         let Test { name: _, setup, pre, run, post } = test;
-        // Setup test
+        println!("Setup test");
         setup_src_and_lit_dirs();
         try!(setup());
 
         report_dir_contents("before");
-        // Check pre-conditions
+        println!("Check pre-conditions");
         try!(pre());
 
-        // Run the action
+        println!("Run the action");
         try!(run());
 
         report_dir_contents("after");
-        // Check post-conditions
+        println!("Check post-conditions");
         try!(post());
 
         Ok(())
@@ -432,5 +459,71 @@ fn stamp_and_lit_without_src() {
             // TODO: check timestamps
             Ok(())
         },
+    }).unwrap_or_panic("test error")
+}
+
+#[test]
+fn stamped_then_touch_lit() {
+    framework(Test {
+        name: "stamped_then_touch_lit",
+        setup: || {
+            try!(create_file(Target::Lit, "foo.md", HELLO_WORLD_MD, TIME_B1));
+            assert!(!Target::Src.path_buf("foo.rs").exists());
+            try!(run_tango());
+            touch_file(Target::Lit, "foo.md", TIME_B2)
+        },
+        pre: || {
+            assert!(Target::Src.path_buf("foo.rs").exists());
+            assert!(Target::Lit.path_buf("foo.md").exists());
+            let rs_t = try!(Target::Src.path_buf("foo.rs").metadata()).modified();
+            let md_t = try!(Target::Lit.path_buf("foo.md").metadata()).modified();
+            assert!(rs_t == TIME_B1, "rs_t: {} TIME_B1: {}", rs_t, TIME_B1);
+            assert!(md_t == TIME_B2, "md_t: {} TIME_B2: {}", md_t, TIME_B2);
+            assert!(TIME_B2 > TIME_B1);
+            Ok(())
+        },
+        run: run_tango,
+        post: || {
+            assert!(Target::Lit.path_buf("foo.md").exists());
+            assert!(Target::Src.path_buf("foo.rs").exists());
+            let rs_t = try!(Target::Src.path_buf("foo.rs").metadata()).modified();
+            let md_t = try!(Target::Lit.path_buf("foo.md").metadata()).modified();
+            assert!(rs_t == TIME_B2, "rs_t: {} TIME_B2: {}", rs_t, TIME_B2);
+            assert!(md_t == TIME_B2, "md_t: {} TIME_B2: {}", md_t, TIME_B2);
+            Ok(())
+        }
+    }).unwrap_or_panic("test error")
+}
+
+#[test]
+fn stamped_then_touch_src() {
+    framework(Test {
+        name: "stamped_then_touch_src",
+        setup: || {
+            try!(create_file(Target::Src, "foo.rs", HELLO_WORLD_RS, TIME_B1));
+            assert!(!Target::Lit.path_buf("foo.md").exists());
+            try!(run_tango());
+            touch_file(Target::Lit, "foo.rs", TIME_B2)
+        },
+        pre: || {
+            assert!(Target::Src.path_buf("foo.rs").exists());
+            assert!(Target::Lit.path_buf("foo.md").exists());
+            let rs_t = try!(Target::Src.path_buf("foo.rs").metadata()).modified();
+            let md_t = try!(Target::Lit.path_buf("foo.md").metadata()).modified();
+            assert!(md_t == TIME_B1, "md_t: {} TIME_B1: {}", md_t, TIME_B1);
+            assert!(rs_t == TIME_B2, "rs_t: {} TIME_B2: {}", rs_t, TIME_B2);
+            assert!(TIME_B2 > TIME_B1);
+            Ok(())
+        },
+        run: run_tango,
+        post: || {
+            assert!(Target::Lit.path_buf("foo.md").exists());
+            assert!(Target::Src.path_buf("foo.rs").exists());
+            let rs_t = try!(Target::Src.path_buf("foo.rs").metadata()).modified();
+            let md_t = try!(Target::Lit.path_buf("foo.md").metadata()).modified();
+            assert!(rs_t == TIME_B2, "rs_t: {} TIME_B2: {}", rs_t, TIME_B2);
+            assert!(md_t == TIME_B2, "md_t: {} TIME_B2: {}", md_t, TIME_B2);
+            Ok(())
+        }
     }).unwrap_or_panic("test error")
 }
