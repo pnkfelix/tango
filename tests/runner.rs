@@ -156,15 +156,15 @@ fn main() { println!(\"Hello World\"); }
 ```
 ";
 
-#[allow(dead_code)] const TIME_A1: u64 = 1000_000;
-#[allow(dead_code)] const TIME_A2: u64 = 1000_100;
-#[allow(dead_code)] const TIME_A3: u64 = 1000_200;
-#[allow(dead_code)] const TIME_B1: u64 = 2000_000;
-#[allow(dead_code)] const TIME_B2: u64 = 2000_100;
-#[allow(dead_code)] const TIME_B3: u64 = 2000_200;
-#[allow(dead_code)] const TIME_C1: u64 = 3000_000;
-#[allow(dead_code)] const TIME_C2: u64 = 3000_100;
-#[allow(dead_code)] const TIME_C3: u64 = 3000_200;
+#[allow(dead_code)] const TIME_A1: u64 = 1000_000_000;
+#[allow(dead_code)] const TIME_A2: u64 = 1000_100_000;
+#[allow(dead_code)] const TIME_A3: u64 = 1000_200_000;
+#[allow(dead_code)] const TIME_B1: u64 = 2000_000_000;
+#[allow(dead_code)] const TIME_B2: u64 = 2000_100_000;
+#[allow(dead_code)] const TIME_B3: u64 = 2000_200_000;
+#[allow(dead_code)] const TIME_C1: u64 = 3000_000_000;
+#[allow(dead_code)] const TIME_C2: u64 = 3000_100_000;
+#[allow(dead_code)] const TIME_C3: u64 = 3000_200_000;
 
 #[derive(Debug)]
 enum TangoRunError {
