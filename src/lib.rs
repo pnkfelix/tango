@@ -431,6 +431,7 @@ impl Context {
     }
 
     fn gather_inputs(&mut self) -> Result<()> {
+        // println!("gather_inputs");
         let src_path = Path::new(SRC_DIR);
         let lit_path = Path::new(LIT_DIR);
 
@@ -466,6 +467,7 @@ impl Context {
 
         }
 
+        // println!("gather-rs");
         for ent in try!(fs::walk_dir(src_path)) {
             let ent = try!(ent);
             let p = ent.path();
@@ -474,6 +476,7 @@ impl Context {
                 continue;
             }
             if !p.rs_extension() {
+                // println!("gather-rs skip {} due to non .rs", p.display());
                 continue;
             }
             let rs = RsPath::new(p);
@@ -490,6 +493,7 @@ impl Context {
                 }
             }
         }
+        // println!("gather-md");
         for ent in try!(fs::walk_dir(lit_path)) {
             let ent = try!(ent);
             let p = ent.path();
@@ -498,14 +502,20 @@ impl Context {
                 continue;
             }
             if !p.md_extension() {
+                // println!("gather-md skip {} due to non .md", p.display());
                 continue;
             }
             let md = MdPath::new(p);
             try!(warn_if_nonexistant(&md));
             let t = try!(md.transform());
             match self.check_transform(&t) {
-                Ok(TransformNeed::Needed) => self.push_lit(t),
-                Ok(TransformNeed::Unneeded) => {}
+                Ok(TransformNeed::Needed) => {
+                    // println!("gather-md add {:?}", t);;
+                    self.push_lit(t)
+                }
+                Ok(TransformNeed::Unneeded) => {
+                    // println!("gather-md discard unneeded {:?}", t);;
+                }
                 Err(e) => {
                     println!("gather_inputs err: {}", e.description());
                     return Err(Error::CheckInputError {
