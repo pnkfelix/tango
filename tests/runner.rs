@@ -12,7 +12,7 @@ use std::env;
 use std::error::Error;
 use std::fmt;
 use std::fs::{self, File, PathExt};
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 use std::path::{PathBuf};
 use std::process::{Command};
 
@@ -171,6 +171,16 @@ fn main() { println!(\"Hello World\"); }
 const HELLO_WORLD_MD: &'static str = "
 ```rust
 fn main() { println!(\"Hello World\"); }
+```
+";
+
+const HELLO_WORLD2_RS: &'static str = "
+fn main() { println!(\"Hello World 2\"); }
+";
+
+const HELLO_WORLD2_MD: &'static str = "
+```rust
+fn main() { println!(\"Hello World 2\"); }
 ```
 ";
 
@@ -490,6 +500,7 @@ fn stamped_then_touch_lit() {
             let md_t = try!(Target::Lit.path_buf("foo.md").metadata()).modified();
             assert!(rs_t == TIME_B2, "rs_t: {} TIME_B2: {}", rs_t, TIME_B2);
             assert!(md_t == TIME_B2, "md_t: {} TIME_B2: {}", md_t, TIME_B2);
+            // TODO: check contents
             Ok(())
         }
     }).unwrap_or_panic("test error")
@@ -503,7 +514,7 @@ fn stamped_then_touch_src() {
             try!(create_file(Target::Src, "foo.rs", HELLO_WORLD_RS, TIME_B1));
             assert!(!Target::Lit.path_buf("foo.md").exists());
             try!(run_tango());
-            touch_file(Target::Lit, "foo.rs", TIME_B2)
+            touch_file(Target::Src, "foo.rs", TIME_B2)
         },
         pre: || {
             assert!(Target::Src.path_buf("foo.rs").exists());
@@ -523,6 +534,55 @@ fn stamped_then_touch_src() {
             let md_t = try!(Target::Lit.path_buf("foo.md").metadata()).modified();
             assert!(rs_t == TIME_B2, "rs_t: {} TIME_B2: {}", rs_t, TIME_B2);
             assert!(md_t == TIME_B2, "md_t: {} TIME_B2: {}", md_t, TIME_B2);
+            // TODO: check contents
+            Ok(())
+        }
+    }).unwrap_or_panic("test error")
+}
+
+#[test]
+fn stamped_then_update_src() {
+    framework(Test {
+        name: "stamped_then_update_src",
+        setup: || {
+            let rs_path = &Target::Src.path_buf("foo.rs");
+            let md_path = &Target::Lit.path_buf("foo.md");
+            try!(create_file(Target::Lit, "foo.md", HELLO_WORLD_MD, TIME_B1));
+            assert!(!rs_path.exists());
+            try!(run_tango());
+            assert!(rs_path.exists());
+            let mut f = try!(File::create(rs_path));
+            try!(write!(f, "{}", HELLO_WORLD2_RS));
+            try!(f.flush());
+            drop(f);
+            touch_file(Target::Src, "foo.rs", TIME_B2)
+        },
+        pre: || {
+            let rs_path = &Target::Src.path_buf("foo.rs");
+            let md_path = &Target::Lit.path_buf("foo.md");
+            assert!(rs_path.exists());
+            assert!(md_path.exists());
+            let rs_t = try!(rs_path.metadata()).modified();
+            let md_t = try!(md_path.metadata()).modified();
+            assert!(md_t == TIME_B1, "md_t: {} TIME_B1: {}", md_t, TIME_B1);
+            assert!(rs_t == TIME_B2, "rs_t: {} TIME_B2: {}", rs_t, TIME_B2);
+            assert!(TIME_B2 > TIME_B1);
+            Ok(())
+        },
+        run: run_tango,
+        post: || {
+            let rs_path = &Target::Src.path_buf("foo.rs");
+            let md_path = &Target::Lit.path_buf("foo.md");
+            assert!(md_path.exists());
+            assert!(rs_path.exists());
+            let rs_t = try!(rs_path.metadata()).modified();
+            let md_t = try!(md_path.metadata()).modified();
+            assert!(rs_t == TIME_B2, "rs_t: {} TIME_B2: {}", rs_t, TIME_B2);
+            assert!(md_t == TIME_B2, "md_t: {} TIME_B2: {}", md_t, TIME_B2);
+            let mut f = try!(File::open(md_path));
+            let mut s = String::new();
+            try!(f.read_to_string(&mut s));
+            assert!(s == HELLO_WORLD2_MD);
             Ok(())
         }
     }).unwrap_or_panic("test error")
