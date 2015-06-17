@@ -2,6 +2,10 @@
 name = "tango"
 version = "0.1.0"
 authors = ["Felix S. Klock II <pnkfelix@pnkfx.org>"]
+description = "Markdown-based Literate programming in Rust, integrated with Cargo."
+license = "MIT/Apache-2.0"
+repository = "https://github.com/pnkfelix/tango"
+documentation = "https://github.com/pnkfelix/tango-demo/blob/master/README.md"
 
 ## Every time I tried to get `debug!` working with `cargo test` I am
 ## flummoxed. Not sure what my problem is, but for now these are not
