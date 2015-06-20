@@ -1,4 +1,4 @@
-#![feature(dir_entry_ext, fs_time, fs_walk, path_ext, file_path)]
+#![feature(fs_time, fs_walk, path_ext, const_fn)]
 
 // #[macro_use]
 // extern crate log;
@@ -13,6 +13,10 @@ use std::io::{self, Read, Write};
 use std::ops;
 use std::path::{Path, PathBuf};
 
+use self::timestamp::{Timestamp, Timestamped};
+
+pub mod timestamp;
+
 pub const STAMP: &'static str = "tango.stamp";
 pub const SRC_DIR: &'static str = "src";
 
@@ -26,7 +30,7 @@ pub enum Error {
     IoError(io::Error),
     CheckInputError { error: check::Error },
     MtimeError(PathBuf),
-    ConcurrentUpdate { path_buf: PathBuf, old_time: u64, new_time: u64 },
+    ConcurrentUpdate { path_buf: PathBuf, old_time: mtime, new_time: mtime },
 }
 
 impl fmt::Display for Error {
@@ -77,30 +81,34 @@ impl convert::From<io::Error> for Error {
 
 pub type Result<X> = std::result::Result<X, Error>;
 
+#[allow(non_camel_case_types)]
+pub type mtime = Timestamp;
+
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 enum MtimeResult {
     NonExistant,
-    Modified(u64),
+    Modified(mtime),
 }
 
 trait Mtime { fn modified(&self) -> Result<MtimeResult>; }
+#[cfg(unix)]
 impl Mtime for File {
     fn modified(&self) -> Result<MtimeResult> {
-        #![allow(deprecated)]
-        if let Some(p) = self.path() {
-            if !p.exists() {
-                return Err(Error::MtimeError(p.to_path_buf()));
-            }
-        }
+        // #![allow(deprecated)]
+        // if let Some(p) = self.path() {
+        //     if !p.exists() {
+        //         return Err(Error::MtimeError(p.to_path_buf()));
+        //     }
+        // }
         let m = try!(self.metadata());
-        Ok(MtimeResult::Modified(m.modified()))
+        Ok(MtimeResult::Modified(m.timestamp()))
     }
 }
+#[cfg(unix)]
 impl Mtime for fs::DirEntry {
     fn modified(&self) -> Result<MtimeResult> {
-        #![allow(deprecated)]
         let m = try!(self.metadata());
-        Ok(MtimeResult::Modified(m.modified()))
+        Ok(MtimeResult::Modified(m.timestamp()))
     }
 }
 impl Mtime for RsPath {
@@ -161,10 +169,10 @@ struct RsPath(PathBuf);
 struct MdPath(PathBuf);
 
 struct Context {
-    orig_stamp: Option<(File, u64)>,
+    orig_stamp: Option<(File, mtime)>,
     src_inputs: Vec<Transform<RsPath, MdPath>>,
     lit_inputs: Vec<Transform<MdPath, RsPath>>,
-    newest_stamp: Option<u64>,
+    newest_stamp: Option<mtime>,
 }
 
 trait Extensions {
@@ -264,7 +272,7 @@ impl Transforms for MdPath {
 
 #[derive(Debug)]
 struct Transform<X, Y> {
-    source_time: u64,
+    source_time: mtime,
     target_time: MtimeResult,
     original: X,
     generate: Y,
@@ -411,7 +419,7 @@ impl Context {
         Ok(())
     }
 
-    fn update_newest_time(&mut self, new_time: u64) {
+    fn update_newest_time(&mut self, new_time: mtime) {
         if let Some(ref mut stamp) = self.newest_stamp {
             if new_time > *stamp {
                 *stamp = new_time;
@@ -530,14 +538,16 @@ impl Context {
         for &Transform { ref original, ref generate, source_time, .. } in &self.src_inputs {
             let source = try!(File::open(&original.0));
             let target = try!(File::create(&generate.0));
+            assert!(source_time > 0);
             try!(rs2md(source, target));
-            try!(fs::set_file_times(&generate.0, source_time, source_time));
+            try!(fs::set_file_times(&generate.0, source_time.to_ms(), source_time.to_ms()));
         }
         for &Transform { ref original, ref generate, source_time, .. } in &self.lit_inputs {
             let source = try!(File::open(&original.0));
             let target = try!(File::create(&generate.0));
+            assert!(source_time > 0);
             try!(md2rs(source, target));
-            try!(fs::set_file_times(&generate.0, source_time, source_time));
+            try!(fs::set_file_times(&generate.0, source_time.to_ms(), source_time.to_ms()));
         }
         Ok(())
     }
@@ -572,7 +582,8 @@ impl Context {
     }
     fn adjust_stamp_timestamp(&mut self) -> Result<()> {
         if let Some(stamp) = self.newest_stamp {
-            match fs::set_file_times(STAMP, stamp, stamp) {
+            assert!(stamp > 0);
+            match fs::set_file_times(STAMP, stamp.to_ms(), stamp.to_ms()) {
                 Ok(()) => Ok(()),
                 Err(e) => Err(Error::IoError(e)),
             }

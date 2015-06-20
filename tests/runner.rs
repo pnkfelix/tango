@@ -1,9 +1,11 @@
-#![feature(path_ext, dir_entry_ext, fs_time, fs_walk, test, scoped_tls)]
+#![feature(path_ext, fs_walk, test, scoped_tls, const_fn)]
 
 extern crate tango;
 
 extern crate tempdir;
 extern crate test;
+
+use tango::timestamp::{Timestamp, Timestamped};
 
 use tempdir::TempDir;
 
@@ -136,7 +138,7 @@ impl Target {
     }
 }
 
-fn create_file(t: Target, filename: &str, content: &str, timestamp: u64) -> io::Result<()> {
+fn create_file(t: Target, filename: &str, content: &str, timestamp: Timestamp) -> io::Result<()> {
     let p = t.path_buf(filename);
     let p = p.as_path();
     assert!(!p.exists(), "path {:?} should not exist", p);
@@ -145,22 +147,40 @@ fn create_file(t: Target, filename: &str, content: &str, timestamp: u64) -> io::
     try!(f.flush());
     drop(f);
     assert!(p.exists(), "path {:?} must now exist", p);
-    fs::set_file_times(p, timestamp, timestamp)
+    assert!(timestamp > 0);
+    timestamp.set_file_times(p)
 }
 
-fn touch_file(t: Target, filename: &str, timestamp: u64) -> Result<(), TangoRunError> {
+fn touch_file(t: Target, filename: &str, timestamp: Timestamp) -> Result<(), TangoRunError> {
     let p = t.path_buf(filename);
     let p = p.as_path();
     assert!(p.exists(), "path {:?} should exist", p);
-    println!("touch path {} t {}  pre: {} ", p.display(), timestamp,
-             try!(p.metadata()).modified());
-    let ret = fs::set_file_times(p, timestamp, timestamp).map_err(TangoRunError::IoError);
+    match () {
+        #[cfg(not(unix))]
+        () => {}
+        #[cfg(unix)]
+        () => {
+            use std::os::unix::fs::MetadataExt;
+            println!("touch path {} t {:?}  pre: {} ", p.display(), timestamp,
+                     try!(p.metadata()).mtime());
+        }
+    }
+    assert!(timestamp > 0);
+    let ret = timestamp.set_file_times(p).map_err(TangoRunError::IoError);
     let p = t.path_buf(filename);
     let p = p.as_path();
     // let f = try!(File::open(p));
     // try!(f.sync_all());
-    println!("touch path {} t {} post: {} ", p.display(), timestamp,
-             try!(p.metadata()).modified());
+    match () {
+        #[cfg(not(unix))]
+        () => {}
+        #[cfg(unix)]
+        () => {
+            use std::os::unix::fs::MetadataExt;
+            println!("touch path {} t {:?} post: {} ", p.display(), timestamp,
+                     try!(p.metadata()).mtime());
+        }
+    }
     ret
 }
 
@@ -184,15 +204,15 @@ fn main() { println!(\"Hello World 2\"); }
 ```
 ";
 
-#[allow(dead_code)] const TIME_A1: u64 = 1000_000_000;
-#[allow(dead_code)] const TIME_A2: u64 = 1000_100_000;
-#[allow(dead_code)] const TIME_A3: u64 = 1000_200_000;
-#[allow(dead_code)] const TIME_B1: u64 = 2000_000_000;
-#[allow(dead_code)] const TIME_B2: u64 = 2000_100_000;
-#[allow(dead_code)] const TIME_B3: u64 = 2000_200_000;
-#[allow(dead_code)] const TIME_C1: u64 = 3000_000_000;
-#[allow(dead_code)] const TIME_C2: u64 = 3000_100_000;
-#[allow(dead_code)] const TIME_C3: u64 = 3000_200_000;
+#[allow(dead_code)] const TIME_A1: Timestamp = Timestamp(1000_000_000);
+#[allow(dead_code)] const TIME_A2: Timestamp = Timestamp(1000_100_000);
+#[allow(dead_code)] const TIME_A3: Timestamp = Timestamp(1000_200_000);
+#[allow(dead_code)] const TIME_B1: Timestamp = Timestamp(2000_000_000);
+#[allow(dead_code)] const TIME_B2: Timestamp = Timestamp(2000_100_000);
+#[allow(dead_code)] const TIME_B3: Timestamp = Timestamp(2000_200_000);
+#[allow(dead_code)] const TIME_C1: Timestamp = Timestamp(3000_000_000);
+#[allow(dead_code)] const TIME_C2: Timestamp = Timestamp(3000_100_000);
+#[allow(dead_code)] const TIME_C3: Timestamp = Timestamp(3000_200_000);
 
 #[derive(Debug)]
 enum TangoRunError {
@@ -271,8 +291,10 @@ fn run_tango() -> Result<(), TangoRunError> {
     })
 }
 
+#[cfg(unix)]
 fn report_dir_contents(prefix: &str) {
     #![allow(deprecated)]
+    use std::os::unix::fs::MetadataExt;
     if !REPORT_DIR_CONTENTS { return; }
     CURRENT_DIR_PREFIX.with(|p| {
         for (i, ent) in fs::walk_dir(p)
@@ -293,7 +315,7 @@ fn report_dir_contents(prefix: &str) {
                             // println!("{} entry[{}] metadata accessed: {:?}",
                             //          prefix, i, m.accessed());
                             println!("{} entry[{}] metadata modified: {:?}",
-                                     prefix, i, m.modified());
+                                     prefix, i, m.mtime());
                         }
                     }
                 }
@@ -485,10 +507,10 @@ fn stamped_then_touch_lit() {
         pre: || {
             assert!(Target::Src.path_buf("foo.rs").exists());
             assert!(Target::Lit.path_buf("foo.md").exists());
-            let rs_t = try!(Target::Src.path_buf("foo.rs").metadata()).modified();
-            let md_t = try!(Target::Lit.path_buf("foo.md").metadata()).modified();
-            assert!(rs_t == TIME_B1, "rs_t: {} TIME_B1: {}", rs_t, TIME_B1);
-            assert!(md_t == TIME_B2, "md_t: {} TIME_B2: {}", md_t, TIME_B2);
+            let rs_t = try!(Target::Src.path_buf("foo.rs").metadata()).timestamp();
+            let md_t = try!(Target::Lit.path_buf("foo.md").metadata()).timestamp();
+            assert!(TIME_B1 == rs_t, "rs_t: {:?} TIME_B1: {:?}", rs_t, TIME_B1);
+            assert!(TIME_B2 == md_t, "md_t: {:?} TIME_B2: {:?}", md_t, TIME_B2);
             assert!(TIME_B2 > TIME_B1);
             Ok(())
         },
@@ -496,10 +518,10 @@ fn stamped_then_touch_lit() {
         post: || {
             assert!(Target::Lit.path_buf("foo.md").exists());
             assert!(Target::Src.path_buf("foo.rs").exists());
-            let rs_t = try!(Target::Src.path_buf("foo.rs").metadata()).modified();
-            let md_t = try!(Target::Lit.path_buf("foo.md").metadata()).modified();
-            assert!(rs_t == TIME_B2, "rs_t: {} TIME_B2: {}", rs_t, TIME_B2);
-            assert!(md_t == TIME_B2, "md_t: {} TIME_B2: {}", md_t, TIME_B2);
+            let rs_t = try!(Target::Src.path_buf("foo.rs").metadata()).timestamp();
+            let md_t = try!(Target::Lit.path_buf("foo.md").metadata()).timestamp();
+            assert!(TIME_B2 == rs_t, "rs_t: {:?} TIME_B2: {:?}", rs_t, TIME_B2);
+            assert!(TIME_B2 == md_t, "md_t: {:?} TIME_B2: {:?}", md_t, TIME_B2);
             // TODO: check contents
             Ok(())
         }
@@ -519,10 +541,12 @@ fn stamped_then_touch_src() {
         pre: || {
             assert!(Target::Src.path_buf("foo.rs").exists());
             assert!(Target::Lit.path_buf("foo.md").exists());
-            let rs_t = try!(Target::Src.path_buf("foo.rs").metadata()).modified();
-            let md_t = try!(Target::Lit.path_buf("foo.md").metadata()).modified();
-            assert!(md_t == TIME_B1, "md_t: {} TIME_B1: {}", md_t, TIME_B1);
-            assert!(rs_t == TIME_B2, "rs_t: {} TIME_B2: {}", rs_t, TIME_B2);
+            println!("try rs_t");
+            let rs_t = try!(Target::Src.path_buf("foo.rs").metadata()).timestamp();
+            println!("try md_t");
+            let md_t = try!(Target::Lit.path_buf("foo.md").metadata()).timestamp();
+            assert!(TIME_B1 == md_t, "md_t: {:?} TIME_B1: {:?}", md_t, TIME_B1);
+            assert!(TIME_B2 == rs_t, "rs_t: {:?} TIME_B2: {:?}", rs_t, TIME_B2);
             assert!(TIME_B2 > TIME_B1);
             Ok(())
         },
@@ -530,10 +554,10 @@ fn stamped_then_touch_src() {
         post: || {
             assert!(Target::Lit.path_buf("foo.md").exists());
             assert!(Target::Src.path_buf("foo.rs").exists());
-            let rs_t = try!(Target::Src.path_buf("foo.rs").metadata()).modified();
-            let md_t = try!(Target::Lit.path_buf("foo.md").metadata()).modified();
-            assert!(rs_t == TIME_B2, "rs_t: {} TIME_B2: {}", rs_t, TIME_B2);
-            assert!(md_t == TIME_B2, "md_t: {} TIME_B2: {}", md_t, TIME_B2);
+            let rs_t = try!(Target::Src.path_buf("foo.rs").metadata()).timestamp();
+            let md_t = try!(Target::Lit.path_buf("foo.md").metadata()).timestamp();
+            assert!(TIME_B2 == rs_t, "rs_t: {:?} TIME_B2: {:?}", rs_t, TIME_B2);
+            assert!(TIME_B2 == md_t, "md_t: {:?} TIME_B2: {:?}", md_t, TIME_B2);
             // TODO: check contents
             Ok(())
         }
@@ -547,6 +571,7 @@ fn stamped_then_update_src() {
         setup: || {
             let rs_path = &Target::Src.path_buf("foo.rs");
             let md_path = &Target::Lit.path_buf("foo.md");
+            assert!(!md_path.exists());
             try!(create_file(Target::Lit, "foo.md", HELLO_WORLD_MD, TIME_B1));
             assert!(!rs_path.exists());
             try!(run_tango());
@@ -562,10 +587,10 @@ fn stamped_then_update_src() {
             let md_path = &Target::Lit.path_buf("foo.md");
             assert!(rs_path.exists());
             assert!(md_path.exists());
-            let rs_t = try!(rs_path.metadata()).modified();
-            let md_t = try!(md_path.metadata()).modified();
-            assert!(md_t == TIME_B1, "md_t: {} TIME_B1: {}", md_t, TIME_B1);
-            assert!(rs_t == TIME_B2, "rs_t: {} TIME_B2: {}", rs_t, TIME_B2);
+            let rs_t = try!(rs_path.metadata()).timestamp();
+            let md_t = try!(md_path.metadata()).timestamp();
+            assert!(TIME_B1 == md_t, "md_t: {:?} TIME_B1: {:?}", md_t, TIME_B1);
+            assert!(TIME_B2 == rs_t, "rs_t: {:?} TIME_B2: {:?}", rs_t, TIME_B2);
             assert!(TIME_B2 > TIME_B1);
             Ok(())
         },
@@ -575,10 +600,10 @@ fn stamped_then_update_src() {
             let md_path = &Target::Lit.path_buf("foo.md");
             assert!(md_path.exists());
             assert!(rs_path.exists());
-            let rs_t = try!(rs_path.metadata()).modified();
-            let md_t = try!(md_path.metadata()).modified();
-            assert!(rs_t == TIME_B2, "rs_t: {} TIME_B2: {}", rs_t, TIME_B2);
-            assert!(md_t == TIME_B2, "md_t: {} TIME_B2: {}", md_t, TIME_B2);
+            let rs_t = try!(rs_path.metadata()).timestamp();
+            let md_t = try!(md_path.metadata()).timestamp();
+            assert!(TIME_B2 == rs_t, "rs_t: {:?} TIME_B2: {:?}", rs_t, TIME_B2);
+            assert!(TIME_B2 == md_t, "md_t: {:?} TIME_B2: {:?}", md_t, TIME_B2);
             let mut f = try!(File::open(md_path));
             let mut s = String::new();
             try!(f.read_to_string(&mut s));
