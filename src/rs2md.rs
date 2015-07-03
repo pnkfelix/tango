@@ -1,13 +1,18 @@
 use std::io::{self, Read, BufRead, Write};
 
 #[derive(Debug)]
-pub struct Converter { output_state: State, blank_line_count: usize }
+pub struct Converter {
+    output_state: State,
+    blank_line_count: usize,
+    meta_note: Option<String>,
+}
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 enum State { MarkdownFirstLine, MarkdownLines, Rust, }
 impl Converter {
     pub fn new() -> Converter {
         Converter { output_state: State::MarkdownFirstLine,
-                    blank_line_count: 0 }
+                    blank_line_count: 0,
+                    meta_note: None, }
     }
 }
 
@@ -69,6 +74,12 @@ impl Converter {
             } else {
                 Ok(())
             }
+        } else if line_right.starts_with("//@@") {
+            let line = &line_right[4..];
+            if line.trim().len() != 0 {
+                self.set_meta_note(line.trim());
+            }
+            Ok(())
         } else if line_right.starts_with("//@") {
             let line = &line_right[3..];
             match self.output_state {
@@ -95,12 +106,27 @@ impl Converter {
         }
     }
 
+    fn set_meta_note(&mut self, note: &str) {
+        if self.meta_note.is_some() {
+            println!("warning: discarding meta note {}", note);
+        }
+        self.meta_note = Some(note.to_string());
+    }
+
     fn effect(&mut self, _c: EffectContext, e: Effect, w: &mut Write) -> io::Result<()> {
         // println!("effect _c: {:?} e: {:?}", _c, e);
         match e {
             Effect::BlankLn => writeln!(w, ""),
             Effect::WriteLn(line) => writeln!(w, "{}", line),
-            Effect::StartCodeBlock => writeln!(w, "```rust"),
+            Effect::StartCodeBlock => {
+                if let Some(ref note) = self.meta_note {
+                    try!(writeln!(w, "```rust {}", note));
+                } else {
+                    try!(writeln!(w, "```rust"));
+                }
+                self.meta_note = None;
+                Ok(())
+            }
             Effect::FinisCodeBlock => writeln!(w, "```"),
             Effect::BlankLitComment => writeln!(w, "//@"),
         }

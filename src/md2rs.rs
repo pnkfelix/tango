@@ -2,7 +2,7 @@ use std::io::{self, Read, BufRead, Write};
 
 pub struct Converter { state: State, blank_line_count: usize }
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
-enum State { MarkdownBlank, MarkdownText, Rust, }
+enum State { MarkdownBlank, MarkdownText, MarkdownMeta, Rust, }
 impl Converter {
     pub fn new() -> Converter { Converter { state: State::MarkdownBlank, blank_line_count: 0 } }
 }
@@ -21,6 +21,11 @@ impl Converter {
         match (self.state, &line.chars().take(7).collect::<String>()[..]) {
             (State::MarkdownBlank, "```rust") |
             (State::MarkdownText, "```rust") => {
+                let rest =  &line.chars().skip(7).collect::<String>();
+                if rest != "" {
+                    try!(self.transition(w, State::MarkdownMeta));
+                    try!(self.meta_note(&rest, w));
+                }
                 self.transition(w, State::Rust)
             }
             (State::Rust, "```") => {
@@ -41,10 +46,16 @@ impl Converter {
         }
     }
 
+    pub fn meta_note(&mut self, note: &str, w: &mut Write) -> io::Result<()> {
+        assert!(note != "");
+        self.nonblank_line(note, w)
+    }
+
     pub fn nonblank_line(&mut self, line: &str, w: &mut Write) -> io::Result<()> {
         let (blank_prefix, line_prefix) = match self.state {
             State::MarkdownBlank => ("", "//@ "),
             State::MarkdownText => ("//@", "//@ "),
+            State::MarkdownMeta => ("//@", "//@@"),
             State::Rust => ("", ""),
         };
         for _ in 0..self.blank_line_count {
@@ -56,6 +67,7 @@ impl Converter {
         match self.state {
             State::MarkdownBlank =>
                 try!(self.transition(w, State::MarkdownText)),
+            State::MarkdownMeta => {}
             State::MarkdownText => {}
             State::Rust => {}
         }
@@ -78,6 +90,10 @@ impl Converter {
 
     fn transition(&mut self, w: &mut Write, s: State) -> io::Result<()> {
         match s {
+            State::MarkdownMeta => {
+                assert!(self.state != State::Rust);
+                try!(self.finish_section(w));
+            }
             State::Rust => {
                 assert!(self.state != State::Rust);
             }

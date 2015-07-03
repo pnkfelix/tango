@@ -114,3 +114,16 @@ let code_fragment;
 This looks like it has a nice para break before its starts,
 but note the tab
 "#;
+
+pub const HELLO6_METADATA_MD: &'static str = r#"# Hello World
+
+```rust { .css_class_metadata }
+// The question is, can we preserve the .css_class_metdata
+```
+"#;
+
+pub const HELLO6_METADATA_RS: &'static str = r#"//@ # Hello World
+
+//@@ { .css_class_metadata }
+// The question is, can we preserve the .css_class_metdata
+"#;
