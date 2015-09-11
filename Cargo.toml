@@ -7,14 +7,15 @@ license = "MIT/Apache-2.0"
 repository = "https://github.com/pnkfelix/tango"
 documentation = "https://github.com/pnkfelix/tango-demo/blob/master/README.md"
 
+[dependencies]
 ## Every time I tried to get `debug!` working with `cargo test` I am
 ## flummoxed. Not sure what my problem is, but for now these are not
 ## enough on their own, so I am leaving them out of the checked-in
 ## version.
 ##
-# [dependencies]
 # log = "*"
 # env_logger = "*"
+filetime = "0.1"
 
 ## dev-dependencies are only pulled in for tests/benchmarks
 [dev-dependencies]

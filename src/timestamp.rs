@@ -1,3 +1,5 @@
+use filetime::{self, FileTime};
+
 use std::cmp::{self, PartialEq, PartialOrd};
 use std::fs;
 use std::io;
@@ -19,11 +21,16 @@ impl Timestamp {
     pub const fn new(secs: u64, ns: u64) -> Timestamp {
         Timestamp { secs: secs, nsecs: ns }
     }
+    pub fn to_filetime(&self) -> FileTime {
+        assert!(self.nsecs < ::std::u32::MAX as u64);
+        FileTime::from_seconds_since_1970(self.secs, self.nsecs as u32)
+    }
     pub fn to_ms(&self) -> u64 {
         self.secs * 1000 + self.nsecs / 1_000_000
     }
     pub fn set_file_times<P: AsRef<Path>>(&self, p: P) -> io::Result<()> {
-        fs::set_file_times(p, self.to_ms(), self.to_ms())
+        let t = self.to_filetime();
+        filetime::set_file_times(p, t, t)
     }
 }
 

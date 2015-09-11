@@ -1,8 +1,12 @@
-#![feature(fs_time, fs_walk, path_ext, const_fn)]
+#![feature(fs_walk, path_ext, const_fn)]
 
 // #[macro_use]
 // extern crate log;
 // extern crate env_logger;
+
+extern crate filetime;
+
+use filetime::set_file_times;
 
 use std::convert;
 use std::env;
@@ -540,14 +544,18 @@ impl Context {
             let target = try!(File::create(&generate.0));
             assert!(source_time > 0);
             try!(rs2md(source, target));
-            try!(fs::set_file_times(&generate.0, source_time.to_ms(), source_time.to_ms()));
+            try!(set_file_times(&generate.0,
+                                source_time.to_filetime(),
+                                source_time.to_filetime()));
         }
         for &Transform { ref original, ref generate, source_time, .. } in &self.lit_inputs {
             let source = try!(File::open(&original.0));
             let target = try!(File::create(&generate.0));
             assert!(source_time > 0);
             try!(md2rs(source, target));
-            try!(fs::set_file_times(&generate.0, source_time.to_ms(), source_time.to_ms()));
+            try!(set_file_times(&generate.0,
+                                source_time.to_filetime(),
+                                source_time.to_filetime()));
         }
         Ok(())
     }
@@ -583,7 +591,7 @@ impl Context {
     fn adjust_stamp_timestamp(&mut self) -> Result<()> {
         if let Some(stamp) = self.newest_stamp {
             assert!(stamp > 0);
-            match fs::set_file_times(STAMP, stamp.to_ms(), stamp.to_ms()) {
+            match set_file_times(STAMP, stamp.to_filetime(), stamp.to_filetime()) {
                 Ok(()) => Ok(()),
                 Err(e) => Err(Error::IoError(e)),
             }
