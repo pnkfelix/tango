@@ -1,4 +1,4 @@
-#![feature(fs_walk, path_ext, const_fn)]
+#![feature(fs_walk, const_fn)]
 
 // #[macro_use]
 // extern crate log;
@@ -12,7 +12,7 @@ use std::convert;
 use std::env;
 use std::error::Error as ErrorTrait;
 use std::fmt;
-use std::fs::{self, File, PathExt};
+use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::ops;
 use std::path::{Path, PathBuf};
