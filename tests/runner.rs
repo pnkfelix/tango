@@ -1,4 +1,4 @@
-#![feature(path_ext, fs_walk, test, scoped_tls, const_fn)]
+#![feature(fs_walk, test, scoped_tls, const_fn)]
 
 extern crate tango;
 
@@ -13,7 +13,7 @@ use std::convert;
 use std::env;
 use std::error::Error;
 use std::fmt;
-use std::fs::{self, File, PathExt};
+use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::path::{PathBuf};
 use std::process::{Command};
@@ -59,17 +59,31 @@ scoped_thread_local!(static CURRENT_DIR_PREFIX: PathBuf);
 
 fn within_temp_dir<F, X>(name: &str, f: F) -> X where F: FnOnce() -> X {
     let out_path = out_path();
+    let mut errors = vec![];
+
     if !out_path.as_path().exists() {
-        fs::create_dir_all(&out_path).unwrap_or_else(|e| {
-            panic!("failure to create output directory at {:?} due to {:?}",
-                   &out_path, e.description());
-        });
+        let mut fail_count = 0;
+
+        while let Err(e) = fs::create_dir_all(&out_path) {
+            fail_count += 1;
+            if fail_count > 100 {
+                panic!("failure to create output directory at {:?} due to {}",
+                       &out_path, e);
+            } else {
+                errors.push((e, &out_path));
+            }
+        }
     }
+
+    if errors.len() > 0 {
+        println!("FYI encountered transient errors {:?} during out_path creation.",
+                 errors);
+    }
+
 
     let temp_dir = TempDir::new_in(&out_path, name)
         .unwrap_or_else(|e| {
-            panic!("failure to create temp dir in {:?}: {:?}",
-                   out_path, e.description());
+            panic!("failure to create temp dir in {:?}: {}", out_path, e);
         });
 
     let result = CURRENT_DIR_PREFIX.set(&temp_dir.path().to_path_buf(), f);
