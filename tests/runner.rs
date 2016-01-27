@@ -1,13 +1,15 @@
-#![feature(fs_walk, test, scoped_tls, const_fn)]
+#![feature(test, scoped_tls)]
 
 extern crate tango;
 
 extern crate tempdir;
 extern crate test;
+extern crate walkdir;
 
 use tango::timestamp::{Timestamp, Timestamped};
 
 use tempdir::TempDir;
+use walkdir::{WalkDir};
 
 use std::convert;
 use std::env;
@@ -319,8 +321,7 @@ fn report_dir_contents(prefix: &str) {
     use std::os::unix::fs::MetadataExt;
     if !REPORT_DIR_CONTENTS { return; }
     CURRENT_DIR_PREFIX.with(|p| {
-        for (i, ent) in fs::walk_dir(p)
-            .unwrap_or_panic("failed to read directory")
+        for (i, ent) in WalkDir::new(p).into_iter()
             .enumerate()
         {
             match ent {
