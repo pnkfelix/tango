@@ -1,12 +1,14 @@
-#![feature(fs_walk, const_fn)]
+#![feature(const_fn)]
 
 // #[macro_use]
 // extern crate log;
 // extern crate env_logger;
 
 extern crate filetime;
+extern crate walkdir;
 
 use filetime::set_file_times;
+use walkdir::{WalkDir};
 
 use std::convert;
 use std::env;
@@ -80,6 +82,12 @@ impl ErrorTrait for Error {
 impl convert::From<io::Error> for Error {
     fn from(e: io::Error) -> Self {
         Error::IoError(e)
+    }
+}
+
+impl convert::From<walkdir::Error> for Error {
+    fn from(e: walkdir::Error) -> Self {
+        Error::IoError(From::from(e))
     }
 }
 
@@ -275,7 +283,7 @@ impl Transforms for MdPath {
 }
 
 #[derive(Debug)]
-struct Transform<X, Y> {
+pub struct Transform<X, Y> {
     source_time: mtime,
     target_time: MtimeResult,
     original: X,
@@ -415,7 +423,7 @@ impl Context {
         let src_path = Path::new(SRC_DIR);
         let lit_path = Path::new(LIT_DIR);
 
-        for (i, ent) in try!(fs::walk_dir(p)).enumerate() {
+        for (i, ent) in try!(WalkDir::new(p)).enumerate() {
             let ent = try!(ent);
             let modified = try!(ent.modified());
             println!("entry[{}]: {:?} {:?}", i, ent.path(), modified);
@@ -480,10 +488,10 @@ impl Context {
         }
 
         // println!("gather-rs");
-        for ent in try!(fs::walk_dir(src_path)) {
+        for ent in WalkDir::new(src_path).into_iter() {
             let ent = try!(ent);
             let p = ent.path();
-            if let Err(why) = keep_file_name(p.as_path()) {
+            if let Err(why) = keep_file_name(p) {
                 println!("skipping {}; {}", p.display(), why);
                 continue;
             }
@@ -491,7 +499,7 @@ impl Context {
                 // println!("gather-rs skip {} due to non .rs", p.display());
                 continue;
             }
-            let rs = RsPath::new(p);
+            let rs = RsPath::new(p.to_path_buf());
             try!(warn_if_nonexistant(&rs));
             let t = try!(rs.transform());
             match self.check_transform(&t) {
@@ -506,10 +514,10 @@ impl Context {
             }
         }
         // println!("gather-md");
-        for ent in try!(fs::walk_dir(lit_path)) {
+        for ent in WalkDir::new(lit_path).into_iter() {
             let ent = try!(ent);
             let p = ent.path();
-            if let Err(why) = keep_file_name(p.as_path()) {
+            if let Err(why) = keep_file_name(p) {
                 println!("skipping {}; {}", p.display(), why);
                 continue;
             }
@@ -517,7 +525,7 @@ impl Context {
                 // println!("gather-md skip {} due to non .md", p.display());
                 continue;
             }
-            let md = MdPath::new(p);
+            let md = MdPath::new(p.to_path_buf());
             try!(warn_if_nonexistant(&md));
             let t = try!(md.transform());
             match self.check_transform(&t) {

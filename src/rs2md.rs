@@ -1,4 +1,4 @@
-use std::io::{self, Read, BufRead, Write};
+use std::io::{self, BufRead, Write};
 
 #[derive(Debug)]
 pub struct Converter {
