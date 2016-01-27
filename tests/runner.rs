@@ -218,15 +218,23 @@ fn main() { println!(\"Hello World 2\"); }
 ```
 ";
 
-#[allow(dead_code)] const TIME_A1: Timestamp = Timestamp(1000_000_000);
-#[allow(dead_code)] const TIME_A2: Timestamp = Timestamp(1000_100_000);
-#[allow(dead_code)] const TIME_A3: Timestamp = Timestamp(1000_200_000);
-#[allow(dead_code)] const TIME_B1: Timestamp = Timestamp(2000_000_000);
-#[allow(dead_code)] const TIME_B2: Timestamp = Timestamp(2000_100_000);
-#[allow(dead_code)] const TIME_B3: Timestamp = Timestamp(2000_200_000);
-#[allow(dead_code)] const TIME_C1: Timestamp = Timestamp(3000_000_000);
-#[allow(dead_code)] const TIME_C2: Timestamp = Timestamp(3000_100_000);
-#[allow(dead_code)] const TIME_C3: Timestamp = Timestamp(3000_200_000);
+// work-around for lack of stable const fn.
+macro_rules! timestamp {
+    ($ms:expr) => {
+        Timestamp { secs: $ms / 1_000,
+                    nsecs: ($ms % 1_000) * 1_000_000 }
+    }
+}
+
+#[allow(dead_code)] const TIME_A1: Timestamp = timestamp!(1000_000_000);
+#[allow(dead_code)] const TIME_A2: Timestamp = timestamp!(1000_100_000);
+#[allow(dead_code)] const TIME_A3: Timestamp = timestamp!(1000_200_000);
+#[allow(dead_code)] const TIME_B1: Timestamp = timestamp!(2000_000_000);
+#[allow(dead_code)] const TIME_B2: Timestamp = timestamp!(2000_100_000);
+#[allow(dead_code)] const TIME_B3: Timestamp = timestamp!(2000_200_000);
+#[allow(dead_code)] const TIME_C1: Timestamp = timestamp!(3000_000_000);
+#[allow(dead_code)] const TIME_C2: Timestamp = timestamp!(3000_100_000);
+#[allow(dead_code)] const TIME_C3: Timestamp = timestamp!(3000_200_000);
 
 #[derive(Debug)]
 enum TangoRunError {

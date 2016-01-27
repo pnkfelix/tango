@@ -10,15 +10,15 @@ pub trait Timestamped {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
-pub struct Timestamp { secs: u64, nsecs: u64 }
+pub struct Timestamp { pub secs: u64, pub nsecs: u64 }
 
 #[allow(non_snake_case)]
-pub const fn Timestamp(ms: u64) -> Timestamp  {
+pub fn Timestamp(ms: u64) -> Timestamp  {
     Timestamp::new(ms / 1_000, (ms % 1_000) * 1_000_000)
 }
 
 impl Timestamp {
-    pub const fn new(secs: u64, ns: u64) -> Timestamp {
+    pub fn new(secs: u64, ns: u64) -> Timestamp {
         Timestamp { secs: secs, nsecs: ns }
     }
     pub fn to_filetime(&self) -> FileTime {
