@@ -1,4 +1,5 @@
 use std::io::{self, BufRead, Write};
+use super::encode_to_url;
 
 #[derive(Debug)]
 pub struct Converter {
@@ -207,11 +208,4 @@ impl Converter {
         self.output_state = s;
         Ok(())
     }
-}
-
-fn encode_to_url(code: &str) -> String {
-    use url::percent_encoding as enc;
-    let new_code: String = enc::utf8_percent_encode(code.trim(), enc::QUERY_ENCODE_SET);
-    // let new_code: String = enc::utf8_percent_encode(code.trim(), enc::FORM_URLENCODED_ENCODE_SET);
-    format!("https://play.rust-lang.org/?code={}&version=nightly", new_code)
 }
