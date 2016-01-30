@@ -1,18 +1,30 @@
+pub use self::ConverterArgs::{SupportFootnotes};
+
 use std::io::{self, Read, BufRead, Write};
+
+pub enum ConverterArgs {
+    SupportFootnotes,
+    PanicOnFootnotes,
+}
 
 #[derive(Debug)]
 pub struct Converter {
+    args: ConverterArgs,
     output_state: State,
     blank_line_count: usize,
     meta_note: Option<String>,
+    footnotes: Vec<Vec<String>>,
 }
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 enum State { MarkdownFirstLine, MarkdownLines, Rust, }
 impl Converter {
-    pub fn new() -> Converter {
-        Converter { output_state: State::MarkdownFirstLine,
+    pub fn new(args: ConverterArgs) -> Converter {
+        Converter { args: args,
+                    output_state: State::MarkdownFirstLine,
                     blank_line_count: 0,
-                    meta_note: None, }
+                    meta_note: None,
+                    footnotes: Vec::new(),
+        }
     }
 }
 
@@ -74,12 +86,16 @@ impl Converter {
             } else {
                 Ok(())
             }
-        } else if line_right.starts_with("//@@") {
+        } else if line_right.starts_with("//@@ {") {
             let line = &line_right[4..];
             if line.trim().len() != 0 {
                 self.set_meta_note(line.trim());
             }
             Ok(())
+        } else if line_right.starts_with("//@@^[") {
+            unimplemented!();
+        } else if line_right.starts_with("//@@:[") {
+            unimplemented!();
         } else if line_right.starts_with("//@") {
             let line = &line_right[3..];
             match self.output_state {

@@ -594,12 +594,17 @@ impl Context {
 }
 
 fn rs2md<R:Read, W:Write>(source: R, target: W) -> Result<()> {
-    let mut converter = rs2md::Converter::new();
+    let mut converter = rs2md::Converter::new(rs2md::SupportFootnotes);
     converter.convert(source, target).map_err(Error::IoError)
 }
 
 fn md2rs<R:Read, W:Write>(source: R, target: W) -> Result<()> {
-    let mut converter = md2rs::Converter::new();
+    let mut converter = md2rs::Converter::new(md2rs::LineForLine);
+    converter.convert(source, target).map_err(Error::IoError)
+}
+
+fn footnoted_md2rs<R:Read, W:Write>(source: R, target: W) -> Result<()> {
+    let mut converter = md2rs::Converter::new(md2rs::UseFootnotes);
     converter.convert(source, target).map_err(Error::IoError)
 }
 

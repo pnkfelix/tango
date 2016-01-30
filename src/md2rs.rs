@@ -1,10 +1,19 @@
+pub use self::ConverterArgs::{LineForLine, UseFootnotes};
+
 use std::io::{self, Read, BufRead, Write};
 
-pub struct Converter { state: State, blank_line_count: usize }
+pub enum ConverterArgs {
+    LineForLine,
+    UseFootnotes,
+}
+
+pub struct Converter { args: ConverterArgs, state: State, blank_line_count: usize }
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 enum State { MarkdownBlank, MarkdownText, MarkdownMeta, Rust, }
 impl Converter {
-    pub fn new() -> Converter { Converter { state: State::MarkdownBlank, blank_line_count: 0 } }
+    pub fn new(args: ConverterArgs) -> Converter {
+        Converter { args: args, state: State::MarkdownBlank, blank_line_count: 0 }
+    }
 }
 
 impl Converter {

@@ -1,6 +1,7 @@
-use super::{md2rs, rs2md};
+use super::{footnoted_md2rs, md2rs, rs2md};
 
 mod test_snippets;
+mod footnote_snippets;
 
 struct DifferingLines<'a> {
     left_line_num: usize,
@@ -119,88 +120,15 @@ fn core_test_rs2md(rs: &str, md: &str) {
     panic_if_different("actual", &output, "expect", md);
 }
 
-#[test]
-fn test_onetext_md2rs() {
-    core_test_md2rs(test_snippets::ONE_TEXT_LINE_MD,
-                    test_snippets::ONE_TEXT_LINE_RS);
+#[cfg(test)]
+fn footnote_test_md2rs(md: &str, rs: &str) {
+    let mut output = Vec::new();
+    footnoted_md2rs(md.as_bytes(), &mut output).unwrap();
+    let output = String::from_utf8(output).unwrap();
+    panic_if_different("actual", &output, "expect", rs);
 }
 
-#[test]
-fn test_onetext_rs2md() {
-    core_test_rs2md(test_snippets::ONE_TEXT_LINE_RS,
-                    test_snippets::ONE_TEXT_LINE_MD);
-}
-
-#[test]
-fn test_onerust_md2rs() {
-    core_test_md2rs(test_snippets::ONE_RUST_LINE_MD,
-                    test_snippets::ONE_RUST_LINE_RS);
-}
-
-#[test]
-fn test_onerust_rs2md() {
-    core_test_rs2md(test_snippets::ONE_RUST_LINE_RS,
-                    test_snippets::ONE_RUST_LINE_MD);
-}
-
-#[test]
-fn test_hello_md2rs() {
-    core_test_md2rs(test_snippets::HELLO_MD, test_snippets::HELLO_RS);
-}
-
-#[test]
-fn test_hello_rs2md() {
-    core_test_rs2md(test_snippets::HELLO_RS, test_snippets::HELLO_MD);
-}
-
-#[test]
-fn test_hello2_md2rs() {
-    core_test_md2rs(test_snippets::HELLO2_MD, test_snippets::HELLO2_RS);
-}
-
-#[test]
-fn test_hello2_rs2md() {
-    core_test_rs2md(test_snippets::HELLO2_RS, test_snippets::HELLO2_MD);
-}
-
-#[test]
-fn test_hello3_md2rs() {
-    core_test_md2rs(test_snippets::HELLO3_MD, test_snippets::HELLO3_RS);
-}
-
-#[test]
-fn test_hello3_rs2md() {
-    core_test_rs2md(test_snippets::HELLO3_RS, test_snippets::HELLO3_MD);
-}
-
-#[test]
-fn test_hello4_md2rs() {
-    core_test_md2rs(test_snippets::HELLO4_MD, test_snippets::HELLO4_RS);
-}
-
-#[test]
-fn test_hello4_rs2md() {
-    core_test_rs2md(test_snippets::HELLO4_RS, test_snippets::HELLO4_MD);
-}
-
-#[test]
-fn test_prodigal5_md2rs() {
-   core_test_md2rs(test_snippets::PRODIGAL5_MD, test_snippets::HARVEST5_RS);
-}
-
-#[test]
-fn test_prodigal5return_md2rs() {
-   core_test_rs2md(test_snippets::HARVEST5_RS, test_snippets::RETURN5_MD);
-}
-
-#[test]
-fn test_hello6_metadata_md2rs() {
-    core_test_md2rs(test_snippets::HELLO6_METADATA_MD,
-                    test_snippets::HELLO6_METADATA_RS);
-}
-
-#[test]
-fn test_hello6_metadata_rs2md() {
-    core_test_rs2md(test_snippets::HELLO6_METADATA_RS,
-                    test_snippets::HELLO6_METADATA_MD);
+#[cfg(test)]
+fn footnote_test_rs2md(rs: &str, md: &str) {
+    core_test_rs2md(rs, md)
 }
