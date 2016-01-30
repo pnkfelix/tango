@@ -127,3 +127,33 @@ pub const HELLO6_METADATA_RS: &'static str = r#"//@ # Hello World
 //@@ { .css_class_metadata }
 // The question is, can we preserve the .css_class_metdata
 "#;
+
+pub const HELLO7_LINK_TO_PLAY_MD: &'static str = r#"# Hello World
+
+```rust
+//
+```
+[hello7]: https://play.rust-lang.org/?code=//&version=nightly
+"#;
+
+pub const HELLO7_LINK_TO_PLAY_RS: &'static str = r#"//@ # Hello World
+
+//
+//@@@ hello7
+"#;
+
+pub const HELLO8_LINK_TO_PLAY_MD: &'static str = r#"# Hello World
+
+```rust
+// Here is some content
+fn main() { }
+```
+[hello8]: https://play.rust-lang.org/?code=//%20Here%20is%20some%20content%0Afn%20main()%20{%20}&version=nightly
+"#;
+
+pub const HELLO8_LINK_TO_PLAY_RS: &'static str = r#"//@ # Hello World
+
+// Here is some content
+fn main() { }
+//@@@ hello8
+"#;

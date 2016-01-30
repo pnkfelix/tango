@@ -3,6 +3,7 @@
 // extern crate env_logger;
 
 extern crate filetime;
+extern crate url;
 extern crate walkdir;
 
 use filetime::set_file_times;

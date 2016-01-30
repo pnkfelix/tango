@@ -41,7 +41,14 @@ impl Converter {
             }
 
             _ => {
-                self.nonblank_line(line, w)
+                // HACK: if we find anything that looks like a markdown-named playpen link
+                if let (Some(open), Some(close)) = (line.find("["), line.find("]: https://play.rust-lang.org/?code=")) {
+                    // then we assume it is associated with the (hopefully immediately preceding)
+                    // code block, so we emit a `//@@@` named tag for that code block.
+                    self.name_block(line, &line[open+1..close], w)
+                } else {
+                    self.nonblank_line(line, w)
+                }
             }
         }
     }
@@ -49,6 +56,11 @@ impl Converter {
     pub fn meta_note(&mut self, note: &str, w: &mut Write) -> io::Result<()> {
         assert!(note != "");
         self.nonblank_line(note, w)
+    }
+
+    pub fn name_block(&mut self, _line: &str, name: &str, w: &mut Write) -> io::Result<()> {
+        assert!(name != "");
+        writeln!(w, "//@@@ {}", name)
     }
 
     pub fn nonblank_line(&mut self, line: &str, w: &mut Write) -> io::Result<()> {

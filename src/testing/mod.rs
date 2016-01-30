@@ -204,3 +204,27 @@ fn test_hello6_metadata_rs2md() {
     core_test_rs2md(test_snippets::HELLO6_METADATA_RS,
                     test_snippets::HELLO6_METADATA_MD);
 }
+
+#[test]
+fn test_hello7_link_to_play_md2rs() {
+    core_test_md2rs(test_snippets::HELLO7_LINK_TO_PLAY_MD,
+                    test_snippets::HELLO7_LINK_TO_PLAY_RS);
+}
+
+#[test]
+fn test_hello7_link_to_play_rs2md() {
+    core_test_rs2md(test_snippets::HELLO7_LINK_TO_PLAY_RS,
+                    test_snippets::HELLO7_LINK_TO_PLAY_MD);
+}
+
+#[test]
+fn test_hello8_link_to_play_md2rs() {
+    core_test_md2rs(test_snippets::HELLO8_LINK_TO_PLAY_MD,
+                    test_snippets::HELLO8_LINK_TO_PLAY_RS);
+}
+
+#[test]
+fn test_hello8_link_to_play_rs2md() {
+    core_test_rs2md(test_snippets::HELLO8_LINK_TO_PLAY_RS,
+                    test_snippets::HELLO8_LINK_TO_PLAY_MD);
+}

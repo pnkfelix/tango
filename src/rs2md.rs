@@ -4,6 +4,8 @@ use std::io::{self, BufRead, Write};
 pub struct Converter {
     output_state: State,
     blank_line_count: usize,
+    block_name: Option<String>,
+    buffered_code: String,
     meta_note: Option<String>,
 }
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -12,6 +14,8 @@ impl Converter {
     pub fn new() -> Converter {
         Converter { output_state: State::MarkdownFirstLine,
                     blank_line_count: 0,
+                    block_name: None,
+                    buffered_code: String::new(),
                     meta_note: None, }
     }
 }
@@ -74,6 +78,12 @@ impl Converter {
             } else {
                 Ok(())
             }
+        } else if line_right.starts_with("//@@@") {
+            let line = &line_right[5..];
+            if line.trim().len() != 0 {
+                self.set_block_name(line.trim());
+            }
+            Ok(())
         } else if line_right.starts_with("//@@") {
             let line = &line_right[4..];
             if line.trim().len() != 0 {
@@ -106,9 +116,16 @@ impl Converter {
         }
     }
 
+    fn set_block_name(&mut self, name: &str) {
+        if let Some(ref prev_name) = self.block_name {
+            println!("warning: discarding block name {} for {}", prev_name, name);
+        }
+        self.block_name = Some(name.to_string());
+    }
+
     fn set_meta_note(&mut self, note: &str) {
-        if self.meta_note.is_some() {
-            println!("warning: discarding meta note {}", note);
+        if let Some(ref prev_note) = self.meta_note {
+            println!("warning: discarding meta note {} for {}", prev_note, note);
         }
         self.meta_note = Some(note.to_string());
     }
@@ -125,9 +142,18 @@ impl Converter {
                     try!(writeln!(w, "```rust"));
                 }
                 self.meta_note = None;
+                self.buffered_code = String::new();
                 Ok(())
             }
-            Effect::FinisCodeBlock => writeln!(w, "```"),
+            Effect::FinisCodeBlock => {
+                try!(writeln!(w, "```"));
+                if let Some(ref name) = self.block_name {
+                    try!(writeln!(w, "[{}]: {}", name, encode_to_url(&self.buffered_code)));
+                }
+                self.block_name = None;
+                self.buffered_code = String::new();
+                Ok(())
+            }
             Effect::BlankLitComment => writeln!(w, "//@"),
         }
     }
@@ -136,12 +162,14 @@ impl Converter {
         for _ in 0..self.blank_line_count {
             try!(self.effect(EffectContext::NonblankLine(line), Effect::BlankLn, w));
         }
+        self.buffered_code = format!("{}\n{}", self.buffered_code, line);
         self.blank_line_count = 0;
         self.effect(EffectContext::NonblankLine(line), Effect::WriteLn(line), w)
     }
 
     fn blank_line(&mut self, _w: &mut Write) -> io::Result<()> {
         self.blank_line_count += 1;
+        self.buffered_code = format!("{}\n", self.buffered_code);
         Ok(())
     }
 
@@ -179,4 +207,11 @@ impl Converter {
         self.output_state = s;
         Ok(())
     }
+}
+
+fn encode_to_url(code: &str) -> String {
+    use url::percent_encoding as enc;
+    let new_code: String = enc::utf8_percent_encode(code.trim(), enc::QUERY_ENCODE_SET);
+    // let new_code: String = enc::utf8_percent_encode(code.trim(), enc::FORM_URLENCODED_ENCODE_SET);
+    format!("https://play.rust-lang.org/?code={}&version=nightly", new_code)
 }

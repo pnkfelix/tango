@@ -17,7 +17,7 @@ documentation = "https://github.com/pnkfelix/tango-demo/blob/master/README.md"
 # env_logger = "*"
 filetime = "0.1"
 walkdir = "0.1.*"
-
+url = "0.5"
 ## dev-dependencies are only pulled in for tests/benchmarks
 [dev-dependencies]
 tempdir = "0.3"
