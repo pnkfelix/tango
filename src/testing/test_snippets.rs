@@ -157,3 +157,19 @@ pub const HELLO8_LINK_TO_PLAY_RS: &'static str = r#"//@ # Hello World
 fn main() { }
 //@@@ hello8
 "#;
+
+pub const HELLO9_LINK_TO_PLAY_MD_WARN: &'static str = r#"# Hello World
+
+```rust
+// Here is some content
+fn main() { }
+```
+[hello9]: https://play.rust-lang.org/?code=does_not_match&version=nightly
+"#;
+
+pub const HELLO9_LINK_TO_PLAY_RS: &'static str = r#"//@ # Hello World
+
+// Here is some content
+fn main() { }
+//@@@ hello9
+"#;

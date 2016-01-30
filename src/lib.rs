@@ -36,7 +36,34 @@ pub enum Error {
     CheckInputError { error: check::Error },
     MtimeError(PathBuf),
     ConcurrentUpdate { path_buf: PathBuf, old_time: mtime, new_time: mtime },
+    Warnings(Vec<Warning>),
 }
+
+#[derive(Debug)]
+pub enum Warning {
+    EncodedUrlMismatch { actual: String, expect: String }
+}
+
+impl fmt::Display for Warning {
+    fn fmt(&self, w: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Warning::EncodedUrlMismatch { ref actual, ref expect } => {
+                write!(w, "mismatch between encoded url, expect: {} actual: {}",
+                       expect, actual)
+            }
+        }
+    }
+}
+
+impl From<md2rs::Exception> for Error {
+    fn from(e: md2rs::Exception) -> Self {
+        match e {
+            md2rs::Exception::IoError(e) => Error::IoError(e),
+            md2rs::Exception::Warnings(w) => Error::Warnings(w),
+        }
+    }
+}
+
 
 impl fmt::Display for Error {
     fn fmt(&self, w: &mut fmt::Formatter) -> fmt::Result {
@@ -51,6 +78,12 @@ impl fmt::Display for Error {
             Error::ConcurrentUpdate { ref path_buf, .. } =>
                 write!(w, "concurrent update during `tango` to source file {}",
                        path_buf.to_string_lossy()),
+            Error::Warnings(ref warnings) => {
+                for warn in warnings {
+                    try!(write!(w, "WARNING: {}", warn));
+                }
+                Ok(())
+            }
         }
     }
 }
@@ -64,6 +97,7 @@ impl ErrorTrait for Error {
             }
             Error::MtimeError(_) => "Modification time check error",
             Error::ConcurrentUpdate { .. } => "concurrent update",
+            Error::Warnings(_) => "warnings",
         }
     }
     fn cause(&self) -> Option<&ErrorTrait> {
@@ -72,6 +106,7 @@ impl ErrorTrait for Error {
             Error::CheckInputError { ref error, .. } => {
                 Some(error)
             }
+            Error::Warnings(_) |
             Error::MtimeError(_) |
             Error::ConcurrentUpdate { .. } => None,
         }
@@ -614,8 +649,8 @@ fn rs2md<R:Read, W:Write>(source: R, target: W) -> Result<()> {
 }
 
 fn md2rs<R:Read, W:Write>(source: R, target: W) -> Result<()> {
-    let mut converter = md2rs::Converter::new();
-    converter.convert(source, target).map_err(Error::IoError)
+    let converter = md2rs::Converter::new();
+    converter.convert(source, target).map_err(From::from)
 }
 
 mod md2rs;

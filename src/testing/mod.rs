@@ -1,5 +1,4 @@
 use super::{md2rs, rs2md};
-
 mod test_snippets;
 
 struct DifferingLines<'a> {
@@ -107,6 +106,18 @@ fn panic_if_different<'a>(name_a: &str, a: &'a str, name_b: &str, b: &'a str) {
 fn core_test_md2rs(md: &str, rs: &str) {
     let mut output = Vec::new();
     md2rs(md.as_bytes(), &mut output).unwrap();
+    let output = String::from_utf8(output).unwrap();
+    panic_if_different("actual", &output, "expect", rs);
+}
+
+#[cfg(test)]
+fn warn_test_md2rs(md: &str, rs: &str) {
+    let mut output = Vec::new();
+    match md2rs(md.as_bytes(), &mut output) {
+        Err(super::Error::Warnings(_)) => {}
+        Ok(_) => panic!("expected successful conversion with warning"),
+        Err(_) => panic!("error in converion"),
+    }
     let output = String::from_utf8(output).unwrap();
     panic_if_different("actual", &output, "expect", rs);
 }
@@ -228,3 +239,10 @@ fn test_hello8_link_to_play_rs2md() {
     core_test_rs2md(test_snippets::HELLO8_LINK_TO_PLAY_RS,
                     test_snippets::HELLO8_LINK_TO_PLAY_MD);
 }
+
+#[test]
+fn test_hello9_link_to_play_md2rs_warn() {
+    warn_test_md2rs(test_snippets::HELLO9_LINK_TO_PLAY_MD_WARN,
+                    test_snippets::HELLO9_LINK_TO_PLAY_RS);
+}
+

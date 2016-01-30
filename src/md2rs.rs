@@ -1,26 +1,57 @@
 use std::io::{self, Read, BufRead, Write};
 
-pub struct Converter { state: State, blank_line_count: usize }
+pub struct Converter {
+    state: State,
+    blank_line_count: usize,
+    buffered_lines: String,
+    warnings: Vec<Warning>,
+}
+
+use super::Warning;
+
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 enum State { MarkdownBlank, MarkdownText, MarkdownMeta, Rust, }
 impl Converter {
-    pub fn new() -> Converter { Converter { state: State::MarkdownBlank, blank_line_count: 0 } }
+    pub fn new() -> Converter {
+        Converter {
+            state: State::MarkdownBlank,
+            blank_line_count: 0,
+            buffered_lines: String::new(),
+            warnings: vec![],
+        }
+    }
+}
+
+pub enum Exception {
+    IoError(io::Error),
+    Warnings(Vec<Warning>),
+}
+
+impl From<io::Error> for Exception {
+    fn from(e: io::Error) -> Self {
+        Exception::IoError(e)
+    }
 }
 
 impl Converter {
-    pub fn convert<R:io::Read, W:io::Write>(&mut self, r:R, mut w:W) -> io::Result<()> {
+    pub fn convert<R:io::Read, W:io::Write>(mut self, r:R, mut w:W) -> Result<(), Exception> {
         let source = io::BufReader::new(r);
         for line in source.lines() {
             let line = try!(line);
             try!(self.handle(&line, &mut w));
         }
-        Ok(())
+        if self.warnings.len() == 0 {
+            Ok(())
+        } else {
+            Err(Exception::Warnings(self.warnings))
+        }
     }
 
     pub fn handle(&mut self, line: &str, w: &mut Write) -> io::Result<()> {
         match (self.state, &line.chars().take(7).collect::<String>()[..]) {
             (State::MarkdownBlank, "```rust") |
             (State::MarkdownText, "```rust") => {
+                self.buffered_lines = String::new();
                 let rest =  &line.chars().skip(7).collect::<String>();
                 if rest != "" {
                     try!(self.transition(w, State::MarkdownMeta));
@@ -41,10 +72,25 @@ impl Converter {
             }
 
             _ => {
-                // HACK: if we find anything that looks like a markdown-named playpen link
-                if let (Some(open), Some(close)) = (line.find("["), line.find("]: https://play.rust-lang.org/?code=")) {
-                    // then we assume it is associated with the (hopefully immediately preceding)
+                // HACK: if we find anything that looks like a markdown-named playpen link ...
+                let open_pat = "[";
+                let close_pat = "]: https://play.rust-lang.org/?code=";
+                if let (Some(open), Some(close)) = (line.find(open_pat), line.find(close_pat)) {
+                    // ... then we assume it is associated with the (hopefully immediately preceding)
                     // code block, so we emit a `//@@@` named tag for that code block.
+
+                    // checking here that emitted code block matches
+                    // up with emitted url. If non-match, then warn
+                    // the user, and suggest they re-run `tango` after
+                    // touching the file to generate matching url.
+                    let expect = super::encode_to_url(&self.buffered_lines);
+                    let actual = &line[(close+3)..];
+                    if expect != actual {
+                        self.warnings.push(Warning::EncodedUrlMismatch {
+                            actual: actual.to_string(),
+                            expect: expect
+                        })
+                    }
                     self.name_block(line, &line[open+1..close], w)
                 } else {
                     self.nonblank_line(line, w)
@@ -81,7 +127,10 @@ impl Converter {
                 try!(self.transition(w, State::MarkdownText)),
             State::MarkdownMeta => {}
             State::MarkdownText => {}
-            State::Rust => {}
+            State::Rust => {
+                self.buffered_lines.push_str("\n");
+                self.buffered_lines.push_str(line);
+            }
         }
 
         writeln!(w, "{}{}", line_prefix, line)
@@ -108,6 +157,7 @@ impl Converter {
             }
             State::Rust => {
                 assert!(self.state != State::Rust);
+                self.buffered_lines = String::new();
             }
             State::MarkdownText => {
                 assert_eq!(self.state, State::MarkdownBlank);
