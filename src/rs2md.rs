@@ -5,7 +5,6 @@ use super::encode_to_url;
 pub struct Converter {
     output_state: State,
     blank_line_count: usize,
-    block_name: Option<String>,
     buffered_code: String,
     meta_note: Option<String>,
 }
@@ -15,7 +14,6 @@ impl Converter {
     pub fn new() -> Converter {
         Converter { output_state: State::MarkdownFirstLine,
                     blank_line_count: 0,
-                    block_name: None,
                     buffered_code: String::new(),
                     meta_note: None, }
     }
@@ -82,7 +80,14 @@ impl Converter {
         } else if line_right.starts_with("//@@@") {
             let line = &line_right[5..];
             if line.trim().len() != 0 {
-                self.set_block_name(line.trim());
+                match self.output_state {
+                    State::Rust =>
+                        try!(self.transition(w, State::MarkdownFirstLine)),
+                    State::MarkdownFirstLine =>
+                        try!(self.transition(w, State::MarkdownLines)),
+                    State::MarkdownLines => {}
+                }
+                try!(self.emit_named_code(line.trim(), w));
             }
             Ok(())
         } else if line_right.starts_with("//@@") {
@@ -117,11 +122,8 @@ impl Converter {
         }
     }
 
-    fn set_block_name(&mut self, name: &str) {
-        if let Some(ref prev_name) = self.block_name {
-            println!("warning: discarding block name {} for {}", prev_name, name);
-        }
-        self.block_name = Some(name.to_string());
+    fn emit_named_code(&mut self, name: &str, w: &mut Write) -> io::Result<()> {
+        writeln!(w, "[{}]: {}", name, encode_to_url(&self.buffered_code))
     }
 
     fn set_meta_note(&mut self, note: &str) {
@@ -148,11 +150,6 @@ impl Converter {
             }
             Effect::FinisCodeBlock => {
                 try!(writeln!(w, "```"));
-                if let Some(ref name) = self.block_name {
-                    try!(writeln!(w, "[{}]: {}", name, encode_to_url(&self.buffered_code)));
-                }
-                self.block_name = None;
-                self.buffered_code = String::new();
                 Ok(())
             }
             Effect::BlankLitComment => writeln!(w, "//@"),
