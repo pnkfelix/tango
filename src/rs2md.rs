@@ -81,13 +81,18 @@ impl Converter {
             let line = &line_right[5..];
             if line.trim().len() != 0 {
                 match self.output_state {
-                    State::Rust =>
-                        try!(self.transition(w, State::MarkdownFirstLine)),
-                    State::MarkdownFirstLine =>
-                        try!(self.transition(w, State::MarkdownLines)),
-                    State::MarkdownLines => {}
+                    State::Rust => {
+                        try!(self.transition(w, State::MarkdownFirstLine));
+                        try!(self.emit_named_code(line.trim(), w));
+                    }
+                    State::MarkdownFirstLine => {
+                        try!(self.transition(w, State::MarkdownLines));
+                        try!(self.emit_named_code(line.trim(), w));
+                    }
+                    State::MarkdownLines => {
+                        try!(self.emit_named_code(line.trim(), w));
+                    }
                 }
-                try!(self.emit_named_code(line.trim(), w));
             }
             Ok(())
         } else if line_right.starts_with("//@@") {
@@ -152,7 +157,7 @@ impl Converter {
                 try!(writeln!(w, "```"));
                 Ok(())
             }
-            Effect::BlankLitComment => writeln!(w, "//@"),
+            Effect::BlankLitComment => writeln!(w, ""),
         }
     }
 

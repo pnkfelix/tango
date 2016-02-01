@@ -194,12 +194,30 @@ pub const HELLO11_LINK_TO_PLAY_HTML_SEP_MD: &'static str = r#"# Hello World
 Hi
 ```
 <!--
-[hello10]: https://play.rust-lang.org/?code=Hi&version=nightly
+[hello11]: https://play.rust-lang.org/?code=Hi&version=nightly
 "#;
 
 pub const HELLO11_LINK_TO_PLAY_HTML_SEP_RS: &'static str = r#"//@ # Hello World
 
 Hi
 //@ <!--
-//@@@ hello10
+//@@@ hello11
+"#;
+
+pub const HELLO12_LINK_TO_PLAY_MARKDOWN_FOLLOW_MD: &'static str = r#"# Hello World
+
+```rust
+Hi
+```
+[hello12]: https://play.rust-lang.org/?code=Hi&version=nightly
+
+Content
+"#;
+
+pub const HELLO12_LINK_TO_PLAY_MARKDOWN_FOLLOW_RS: &'static str = r#"//@ # Hello World
+
+Hi
+//@@@ hello12
+
+//@ Content
 "#;
