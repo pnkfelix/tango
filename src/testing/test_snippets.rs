@@ -133,7 +133,7 @@ pub const HELLO7_LINK_TO_PLAY_MD: &'static str = r#"# Hello World
 ```rust
 //
 ```
-[hello7]: https://play.rust-lang.org/?code=//&version=nightly
+[hello7]: https://play.rust-lang.org/?code=%2F%2F&version=nightly
 "#;
 
 pub const HELLO7_LINK_TO_PLAY_RS: &'static str = r#"//@ # Hello World
@@ -148,7 +148,7 @@ pub const HELLO8_LINK_TO_PLAY_MD: &'static str = r#"# Hello World
 // Here is some content
 fn main() { }
 ```
-[hello8]: https://play.rust-lang.org/?code=//%20Here%20is%20some%20content%0Afn%20main()%20{%20}&version=nightly
+[hello8]: https://play.rust-lang.org/?code=%2F%2F%20Here%20is%20some%20content%0Afn%20main%28%29%20%7B%20%7D&version=nightly
 "#;
 
 pub const HELLO8_LINK_TO_PLAY_RS: &'static str = r#"//@ # Hello World
@@ -172,4 +172,18 @@ pub const HELLO9_LINK_TO_PLAY_RS: &'static str = r#"//@ # Hello World
 // Here is some content
 fn main() { }
 //@@@ hello9
+"#;
+
+pub const HELLO10_LINK_TO_PLAY_EQ_MD: &'static str = r#"# Hello World
+
+```rust
+=
+```
+[hello10]: https://play.rust-lang.org/?code=%3D&version=nightly
+"#;
+
+pub const HELLO10_LINK_TO_PLAY_EQ_RS: &'static str = r#"//@ # Hello World
+
+=
+//@@@ hello10
 "#;
