@@ -187,3 +187,19 @@ pub const HELLO10_LINK_TO_PLAY_EQ_RS: &'static str = r#"//@ # Hello World
 =
 //@@@ hello10
 "#;
+
+pub const HELLO11_LINK_TO_PLAY_HTML_SEP_MD: &'static str = r#"# Hello World
+
+```rust
+Hi
+```
+<!--
+[hello10]: https://play.rust-lang.org/?code=Hi&version=nightly
+"#;
+
+pub const HELLO11_LINK_TO_PLAY_HTML_SEP_RS: &'static str = r#"//@ # Hello World
+
+Hi
+//@ <!--
+//@@@ hello10
+"#;

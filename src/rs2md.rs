@@ -160,14 +160,18 @@ impl Converter {
         for _ in 0..self.blank_line_count {
             try!(self.effect(EffectContext::NonblankLine(line), Effect::BlankLn, w));
         }
-        self.buffered_code = format!("{}\n{}", self.buffered_code, line);
+        if State::Rust == self.output_state {
+            self.buffered_code = format!("{}\n{}", self.buffered_code, line);
+        }
         self.blank_line_count = 0;
         self.effect(EffectContext::NonblankLine(line), Effect::WriteLn(line), w)
     }
 
     fn blank_line(&mut self, _w: &mut Write) -> io::Result<()> {
         self.blank_line_count += 1;
-        self.buffered_code = format!("{}\n", self.buffered_code);
+        if State::Rust == self.output_state {
+            self.buffered_code = format!("{}\n", self.buffered_code);
+        }
         Ok(())
     }
 

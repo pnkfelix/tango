@@ -258,3 +258,14 @@ fn test_hello10_link_to_play_eq_rs2md() {
                     test_snippets::HELLO10_LINK_TO_PLAY_EQ_MD);
 }
 
+#[test]
+fn test_hello11_link_to_play_md2rs() {
+    core_test_md2rs(test_snippets::HELLO11_LINK_TO_PLAY_HTML_SEP_MD,
+                    test_snippets::HELLO11_LINK_TO_PLAY_HTML_SEP_RS);
+}
+
+#[test]
+fn test_hello11_link_to_play_rs2md() {
+    core_test_rs2md(test_snippets::HELLO11_LINK_TO_PLAY_HTML_SEP_RS,
+                    test_snippets::HELLO11_LINK_TO_PLAY_HTML_SEP_MD);
+}

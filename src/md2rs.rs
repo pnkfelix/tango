@@ -137,7 +137,14 @@ impl Converter {
     }
 
     fn blank_line(&mut self, _w: &mut Write) -> io::Result<()> {
-        self.buffered_lines.push_str("\n");
+        match self.state {
+            State::Rust => {
+                self.buffered_lines.push_str("\n");
+            }
+            State::MarkdownBlank |
+            State::MarkdownMeta |
+            State::MarkdownText => {}
+        }
         self.blank_line_count += 1;
         Ok(())
     }
