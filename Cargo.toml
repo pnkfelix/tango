@@ -1,6 +1,6 @@
 [package]
 name = "tango"
-version = "0.4.4"
+version = "0.4.5"
 authors = ["Felix S. Klock II <pnkfelix@pnkfx.org>"]
 description = "Markdown-based Literate programming in Rust, integrated with Cargo."
 license = "MIT/Apache-2.0"
