@@ -1,4 +1,4 @@
-use std::io::{self, Read, BufRead, Write};
+use std::io::{self, BufRead, Write};
 
 pub struct Converter {
     state: State,
