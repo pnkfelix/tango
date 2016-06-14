@@ -117,7 +117,7 @@ but note the tab
 
 pub const HELLO6_METADATA_MD: &'static str = r#"# Hello World
 
-```rust { .css_class_metadata }
+```{.rust .css_class_metadata }
 // The question is, can we preserve the .css_class_metdata
 ```
 "#;

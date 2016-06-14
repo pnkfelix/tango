@@ -145,7 +145,8 @@ impl Converter {
             Effect::WriteLn(line) => writeln!(w, "{}", line),
             Effect::StartCodeBlock => {
                 if let Some(ref note) = self.meta_note {
-                    try!(writeln!(w, "```rust {}", note));
+                    assert_eq!(note.chars().next(), Some('{'));
+                    try!(writeln!(w, "```{{.rust{}", &note[1..]));
                 } else {
                     try!(writeln!(w, "```rust"));
                 }

@@ -48,9 +48,11 @@ impl Converter {
     }
 
     pub fn handle(&mut self, line: &str, w: &mut Write) -> io::Result<()> {
-        match (self.state, &line.chars().take(7).collect::<String>()[..]) {
-            (State::MarkdownBlank, "```rust") |
-            (State::MarkdownText, "```rust") => {
+        let str9 = line.chars().take(9).collect::<String>();
+        let str7 = line.chars().take(7).collect::<String>();
+        match (self.state, &str7[..], &str9[..]) {
+            (State::MarkdownBlank, "```rust", _) |
+            (State::MarkdownText, "```rust", _) => {
                 self.buffered_lines = String::new();
                 let rest =  &line.chars().skip(7).collect::<String>();
                 if rest != "" {
@@ -59,7 +61,17 @@ impl Converter {
                 }
                 self.transition(w, State::Rust)
             }
-            (State::Rust, "```") => {
+            (State::MarkdownBlank, _, "```{.rust") |
+            (State::MarkdownText, _, "```{.rust") => {
+                self.buffered_lines = String::new();
+                let rest =  &line.chars().skip(9).collect::<String>();
+                if rest != "" {
+                    try!(self.transition(w, State::MarkdownMeta));
+                    try!(self.meta_note(&format!(" {{{}", rest), w));
+                }
+                self.transition(w, State::Rust)
+            }
+            (State::Rust, "```", _) => {
                 self.transition(w, State::MarkdownBlank)
             }
 
@@ -67,7 +79,7 @@ impl Converter {
             // prefix if there's no state transition; otherwise
             // emit them with no prefix. (This is in part the
             // motivation for the `fn finish_section` design.)
-            (_, "") => {
+            (_, "", _) => {
                 self.blank_line(w)
             }
 
