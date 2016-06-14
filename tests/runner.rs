@@ -1,4 +1,4 @@
-#![feature(test, scoped_tls)]
+#![feature(test)]
 
 extern crate tango;
 
