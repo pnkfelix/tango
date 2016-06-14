@@ -11,6 +11,7 @@ use tango::timestamp::{Timestamp, Timestamped};
 use tempdir::TempDir;
 use walkdir::{WalkDir};
 
+use std::cell::RefCell;
 use std::convert;
 use std::env;
 use std::error::Error;
@@ -57,7 +58,7 @@ fn infer_target_binary() -> PathBuf {
     dir
 }
 
-scoped_thread_local!(static CURRENT_DIR_PREFIX: PathBuf);
+thread_local!(static CURRENT_DIR_PREFIX: RefCell<PathBuf> = RefCell::new(PathBuf::new()));
 
 fn within_temp_dir<F, X>(name: &str, f: F) -> X where F: FnOnce() -> X {
     let out_path = out_path();
@@ -88,7 +89,10 @@ fn within_temp_dir<F, X>(name: &str, f: F) -> X where F: FnOnce() -> X {
             panic!("failure to create temp dir in {:?}: {}", out_path, e);
         });
 
-    let result = CURRENT_DIR_PREFIX.set(&temp_dir.path().to_path_buf(), f);
+    let result = CURRENT_DIR_PREFIX.with(|prefix| {
+        *prefix.borrow_mut() = temp_dir.path().to_path_buf();
+        f()
+    });
 
     if PRESERVE_TEMP_DIRS {
         std::mem::forget(temp_dir);
@@ -127,6 +131,7 @@ impl<X, Y:Error> UnwrapOrPanic for Result<X, Y> {
 
 fn setup_src_and_lit_dirs() {
     CURRENT_DIR_PREFIX.with(|p| {
+        let p = p.borrow_mut();
         let mut p_src = p.clone();
         p_src.push(tango::SRC_DIR);
         fs::create_dir(p_src).unwrap_or_panic(&format!("failed to create {}", tango::SRC_DIR));
@@ -142,6 +147,7 @@ enum Target { Root, Src, Lit }
 impl Target {
     fn path_buf(&self, filename: &str) -> PathBuf {
         CURRENT_DIR_PREFIX.with(|p| {
+            let p = p.borrow_mut();
             let mut p = p.clone();
             match *self {
                 Target::Root => {}
@@ -282,10 +288,11 @@ impl convert::From<io::Error> for TangoRunError {
 
 fn run_tango() -> Result<(), TangoRunError> {
     CURRENT_DIR_PREFIX.with(|p| -> Result<(), TangoRunError> {
+        let p = p.borrow_mut();
         let result = infer_target_binary();
         // println!("result {:?}", result);
         let output = match Command::new(result)
-            .current_dir(p)
+            .current_dir(&*p)
             .output() {
                 Ok(o) => o,
                 Err(e) => return Err(TangoRunError::IoError(e)),
@@ -321,7 +328,8 @@ fn report_dir_contents(prefix: &str) {
     use std::os::unix::fs::MetadataExt;
     if !REPORT_DIR_CONTENTS { return; }
     CURRENT_DIR_PREFIX.with(|p| {
-        for (i, ent) in WalkDir::new(p).into_iter()
+        let p = p.borrow_mut();
+        for (i, ent) in WalkDir::new(&*p).into_iter()
             .enumerate()
         {
             match ent {
