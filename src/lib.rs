@@ -137,7 +137,6 @@ enum MtimeResult {
 }
 
 trait Mtime { fn modified(&self) -> Result<MtimeResult>; }
-#[cfg(unix)]
 impl Mtime for File {
     fn modified(&self) -> Result<MtimeResult> {
         // #![allow(deprecated)]
@@ -150,7 +149,6 @@ impl Mtime for File {
         Ok(MtimeResult::Modified(m.timestamp()))
     }
 }
-#[cfg(unix)]
 impl Mtime for fs::DirEntry {
     fn modified(&self) -> Result<MtimeResult> {
         let m = try!(self.metadata());

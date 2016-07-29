@@ -322,10 +322,7 @@ fn run_tango() -> Result<(), TangoRunError> {
     })
 }
 
-#[cfg(unix)]
 fn report_dir_contents(prefix: &str) {
-    #![allow(deprecated)]
-    use std::os::unix::fs::MetadataExt;
     if !REPORT_DIR_CONTENTS { return; }
     CURRENT_DIR_PREFIX.with(|p| {
         let p = p.borrow_mut();
@@ -346,7 +343,7 @@ fn report_dir_contents(prefix: &str) {
                             // println!("{} entry[{}] metadata accessed: {:?}",
                             //          prefix, i, m.accessed());
                             println!("{} entry[{}] metadata modified: {:?}",
-                                     prefix, i, m.mtime());
+                                     prefix, i, m.modified().unwrap());
                         }
                     }
                 }
