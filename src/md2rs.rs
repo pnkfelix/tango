@@ -40,7 +40,7 @@ impl Converter {
             let line = try!(line);
             try!(self.handle(&line, &mut w));
         }
-        if self.warnings.len() == 0 {
+        if self.warnings.is_empty() {
             Ok(())
         } else {
             Err(Exception::Warnings(self.warnings))
@@ -137,7 +137,7 @@ impl Converter {
         match self.state {
             State::MarkdownBlank =>
                 try!(self.transition(w, State::MarkdownText)),
-            State::MarkdownMeta => {}
+            State::MarkdownMeta |
             State::MarkdownText => {}
             State::Rust => {
                 self.buffered_lines.push_str("\n");

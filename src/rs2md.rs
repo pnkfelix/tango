@@ -57,11 +57,11 @@ impl Converter {
 
     pub fn handle(&mut self, line: &str, w: &mut Write) -> io::Result<()> {
         let line_right = line.trim_left();
-        if line_right.len() == 0 {
+        if line_right.is_empty() {
             self.blank_line(w)
         } else if line_right.starts_with("//@ ") {
             let line = &line_right[4..];
-            if line.trim().len() == 0 {
+            if line.trim().is_empty() {
                 try!(self.blank_line(w))
             }
             match self.output_state {
@@ -72,14 +72,14 @@ impl Converter {
                 State::MarkdownLines =>
                     {}
             }
-            if line.trim().len() != 0 {
-                self.nonblank_line(line, w)
-            } else {
+            if line.trim().is_empty() {
                 Ok(())
+            } else {
+                self.nonblank_line(line, w)
             }
         } else if line_right.starts_with("//@@@") {
             let line = &line_right[5..];
-            if line.trim().len() != 0 {
+            if !line.trim().is_empty() {
                 match self.output_state {
                     State::Rust => {
                         try!(self.transition(w, State::MarkdownFirstLine));
@@ -97,7 +97,7 @@ impl Converter {
             Ok(())
         } else if line_right.starts_with("//@@") {
             let line = &line_right[4..];
-            if line.trim().len() != 0 {
+            if !line.trim().is_empty() {
                 self.set_meta_note(line.trim());
             }
             Ok(())
@@ -111,7 +111,7 @@ impl Converter {
                 State::MarkdownLines =>
                 {}
             }
-            if line.trim().len() == 0 {
+            if line.trim().is_empty() {
                 self.blank_line(w)
             } else {
                 self.nonblank_line(line, w)

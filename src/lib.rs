@@ -447,7 +447,7 @@ impl Context {
         // s_mod >= t_mod (and t_mod <= stamp_time if stamp exists).
         //
         // Thus it is safe to overwrite `t` based on source content.
-        return Ok(TransformNeed::Needed);
+        Ok(TransformNeed::Needed)
     }
 
     #[cfg(not_now)]
@@ -491,7 +491,7 @@ impl Context {
             match p.file_name().and_then(|x|x.to_str()) {
                 None =>
                     Err("file name is not valid unicode"),
-                Some(s) if s.starts_with(".") =>
+                Some(s) if s.starts_with('.') =>
                     Err("file name has leading period"),
                 Some(..) =>
                     Ok(()),
