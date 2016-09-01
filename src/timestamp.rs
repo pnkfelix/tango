@@ -62,8 +62,6 @@ impl Timestamped for fs::Metadata {
         let ft = FileTime::from_last_modification_time( self );
         let s = ft.seconds_relative_to_1970();
         let ns = ft.nanoseconds();
-        assert!(s >= 0);
-        assert!(ns >= 0);
         // println!("metadata mtime: {} ns: {}", s, ns);
         Timestamp::new(s as u64, ns as u64)
     }
