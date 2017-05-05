@@ -1,6 +1,6 @@
 [package]
 name = "tango"
-version = "0.5.0"
+version = "0.5.1"
 authors = ["Felix S. Klock II <pnkfelix@pnkfx.org>"]
 description = "Markdown-based Literate programming in Rust, integrated with Cargo."
 license = "MIT/Apache-2.0"
@@ -16,8 +16,8 @@ documentation = "https://github.com/pnkfelix/tango-demo/blob/master/README.md"
 # log = "*"
 # env_logger = "*"
 filetime = "0.1"
-walkdir = "0.1.*"
-url = "0.5"
+walkdir = "1.0"
+url = "1.4"
 ## dev-dependencies are only pulled in for tests/benchmarks
 [dev-dependencies]
 tempdir = "0.3"
