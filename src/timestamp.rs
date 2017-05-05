@@ -58,13 +58,10 @@ impl PartialOrd<u64> for Timestamp {
 }
 
 impl Timestamped for fs::Metadata {
-    #[cfg(unix)]
     fn timestamp(&self) -> Timestamp {
-        use std::os::unix::fs::MetadataExt; // this is why there's cfg(unix) at the top
-        let s = self.mtime();
-        let ns = self.mtime_nsec();
-        assert!(s >= 0);
-        assert!(ns >= 0);
+        let ft = FileTime::from_last_modification_time( self );
+        let s = ft.seconds_relative_to_1970();
+        let ns = ft.nanoseconds();
         // println!("metadata mtime: {} ns: {}", s, ns);
         Timestamp::new(s as u64, ns as u64)
     }
