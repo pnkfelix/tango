@@ -333,7 +333,7 @@ pub mod check {
     #[derive(Debug)]
     pub enum ErrorKind {
         TargetYoungerThanOriginal { tgt: String, src: String },
-        NoTangoStampExists,
+        NoTangoStampExists { tgt: String, src: String },
         TangoStampOlderThanTarget { tgt: String },
     }
     #[derive(Debug)]
@@ -345,8 +345,9 @@ pub mod check {
                 ErrorKind::TargetYoungerThanOriginal { ref tgt, ref src } => {
                     write!(w, "target {} is younger than source {}", tgt, src)
                 }
-                ErrorKind::NoTangoStampExists => {
-                    write!(w, "both source and target exist but no `tango.stamp` is present")
+                ErrorKind::NoTangoStampExists { ref src, ref tgt } => {
+                    write!(w, "both source {} and target {} exist but no `tango.stamp` is present",
+                           src, tgt)
                 }
                 ErrorKind::TangoStampOlderThanTarget { ref tgt } => {
                     write!(w, "`tango.stamp` is older than target {}", tgt)
@@ -361,7 +362,7 @@ pub mod check {
                 ErrorKind::TargetYoungerThanOriginal { .. }=> {
                     "target is younger than source"
                 }
-                ErrorKind::NoTangoStampExists => {
+                ErrorKind::NoTangoStampExists { .. } => {
                     "both source and target exist but no `tango.stamp` is present"
                 }
                 ErrorKind::TangoStampOlderThanTarget { .. } => {
@@ -431,7 +432,10 @@ impl Context {
             return Ok(TransformNeed::Unneeded);
         } else { // s_mod <= t_mod
             match self.orig_stamp {
-                None => return Err(t.error(NoTangoStampExists)),
+                None => return Err(t.error(NoTangoStampExists {
+                    src: t.original.display().to_string(),
+                    tgt: t.generate.display().to_string(),
+                })),
                 Some((_, stamp_time)) => {
                     if stamp_time < t_mod {
                         return Err(t.error(TangoStampOlderThanTarget {
