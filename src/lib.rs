@@ -186,7 +186,36 @@ pub fn process_root() -> Result<()> {
     }
 }
 
+// Both of the functions below have the same basic outline:
+//
+// 1. gather_inputs(): Build up a list of potential transforms based
+//    on existing files.
+//
+// 2. generate_content(): Apply each transform in turn, *iff* the
+//    source is newer than target.
+//
+// 3. check_input_timestamps(): Ensure no input was concurrently
+//    modified while tango ran.
+//
+// 4. adjust_stamp_timestamp(): Update the `tango.stamp` file to the
+//    youngest timestamp we saw, creating the file if necessary.
+//
+// The reason there are two functions is that in one case we have a
+// pre-existing `tango.stamp` that we want to compare against during
+// `generate_content()` (to guard against diverging {source, target}
+// paths; *at most* one of {source, target} is meant to be updated in
+// between tango runs.
+//
+// (It probably wouldn't be hard to unify the two functions into a
+//  single method on the `Context`, though.)
+
 fn process_with_stamp(stamp: File) -> Result<()> {
+    if let Ok(MtimeResult::Modified(ts)) = stamp.modified() {
+        println!("Rerunning tango; last recorded run was stamped: {}",
+                 ts.date_fulltime_badly());
+    } else {
+        panic!("why are we trying to process_with_stamp when given: {:?}", stamp);
+    }
     let mut c = try!(Context::new(Some(stamp)));
     try!(c.gather_inputs());
     try!(c.generate_content());
@@ -197,6 +226,7 @@ fn process_with_stamp(stamp: File) -> Result<()> {
 }
 
 fn process_without_stamp() -> Result<()> {
+    println!("Running tango; no previously recorded run");
     let mut c = try!(Context::new(None));
     try!(c.gather_inputs());
     try!(c.generate_content());
@@ -278,7 +308,13 @@ impl MdPath {
 
 trait Transforms: Sized + Mtime + fmt::Debug {
     type Target: Mtime + fmt::Debug;
+
+    // Computes path to desired target based on self's (source) path.
     fn target(&self) -> Self::Target;
+
+    // Constructs a transform for generating the target from self
+    // (which is a path to the source), gathering the current
+    // timestamps on both the source and the target.
     fn transform(self) -> Result<Transform<Self, Self::Target>> {
         let source_time = match self.modified() {
             Ok(MtimeResult::Modified(t)) => t,
@@ -288,6 +324,7 @@ trait Transforms: Sized + Mtime + fmt::Debug {
                 return Err(e);
             }
         };
+
         let target = self.target();
         let target_time = match target.modified() {
             Ok(t) => t,
@@ -343,14 +380,18 @@ pub mod check {
         fn fmt(&self, w: &mut fmt::Formatter) -> fmt::Result {
             match self.0 {
                 ErrorKind::TargetYoungerThanOriginal { ref tgt, ref src } => {
-                    write!(w, "target {} is younger than source {}", tgt, src)
+                    write!(w, "target `{}` is younger than source `{}`; \
+                               therefore we assume target has modifications that need to be preserved.",
+                           tgt, src)
                 }
                 ErrorKind::NoTangoStampExists { ref src, ref tgt } => {
-                    write!(w, "both source {} and target {} exist but no `tango.stamp` is present",
+                    write!(w, "both source `{}` and target `{}` exist but no `tango.stamp` is present",
                            src, tgt)
                 }
                 ErrorKind::TangoStampOlderThanTarget { ref tgt } => {
-                    write!(w, "`tango.stamp` is older than target {}", tgt)
+                    write!(w, "`tango.stamp` is older than target `{}`; \
+                               therefore we assume source and target have diverged since last tango run.",
+                           tgt)
                 }
             }
         }
@@ -360,13 +401,15 @@ pub mod check {
         fn description(&self) -> &str {
             match self.0 {
                 ErrorKind::TargetYoungerThanOriginal { .. }=> {
-                    "target is younger than source"
+                    "target is younger than source; \
+                     therefore we assume target has modifications that need to be preserved."
                 }
                 ErrorKind::NoTangoStampExists { .. } => {
                     "both source and target exist but no `tango.stamp` is present"
                 }
                 ErrorKind::TangoStampOlderThanTarget { .. } => {
-                    "`tango.stamp` is older than target"
+                    "`tango.stamp` is older than target; \
+                     therefore we assume source and target have diverged since last tango run."
                 }
             }
         }
@@ -428,21 +471,68 @@ impl Context {
         // let src = t.original.display().to_string();
         // let tgt = t.generate.display().to_string();
         let s_mod = t.source_time;
+
+        let same_age_at_low_precision = s_mod.to_ms() == t_mod.to_ms();
+
         if t_mod > s_mod {
+            // Target is newer than source: therefore we do not want to
+            // overwrite the target via this transform.
             return Ok(TransformNeed::Unneeded);
-        } else { // s_mod <= t_mod
-            match self.orig_stamp {
-                None => return Err(t.error(NoTangoStampExists {
-                    src: t.original.display().to_string(),
-                    tgt: t.generate.display().to_string(),
-                })),
-                Some((_, stamp_time)) => {
-                    if stamp_time < t_mod {
-                        return Err(t.error(TangoStampOlderThanTarget {
-                            tgt: t.generate.display().to_string(),
-                        }));
-                    }
+        }
+
+        // Now know:  t_mod <= s_mod
+
+        if same_age_at_low_precision {
+            //        00000000011111111112222222222333333333344444444445555555555666666666677777777778
+            //        12345678901234567890123456789012345678901234567890123456789012345678901234567890
+            println!("Warning: source and target have timestamps that differ only at nanosecond level\n    \
+                          precision. Tango currently treats such timestamps as matching, and therefore\n    \
+                          will not rebuild the target file.\n\
+                          \n    \
+                          source: {SRC:?} timestamp: {SRC_TS} \n    \
+                          target: {TGT:?} timestamp: {TGT_TS}\n",
+                     SRC=t.original.display(), SRC_TS=s_mod.date_fulltime_badly(),
+                     TGT=t.generate.display(), TGT_TS=t_mod.date_fulltime_badly());
+            return Ok(TransformNeed::Unneeded);
+        }
+
+        // Now know: t_mod is older than source even after truncating
+        // to millisecond precision.
+
+        match self.orig_stamp {
+            None => return Err(t.error(NoTangoStampExists {
+                src: t.original.display().to_string(),
+                tgt: t.generate.display().to_string(),
+            })),
+            Some((_, stamp_time)) => {
+                let older_at_high_precision = stamp_time < t_mod;
+                let older_at_low_precision = stamp_time.to_ms() < t_mod.to_ms();
+                if older_at_low_precision {
+                    // The target file was updated more recently than
+                    // the tango.stamp file, even after truncation to
+                    // millisecond precision.
+                    //
+                    // Therefore, we assume that user has updated both
+                    // the source and the target independently since
+                    // the last tango run.  This is a scenario that
+                    // tango cannot currently recover from, so we
+                    // issue an error and tell the user to fix the
+                    // problem.
+                    return Err(t.error(TangoStampOlderThanTarget {
+                        tgt: t.generate.display().to_string(),
+                    }));
                 }
+                if older_at_high_precision && !older_at_low_precision {
+                    //        00000000011111111112222222222333333333344444444445555555555666666666677777777778
+                    //        12345678901234567890123456789012345678901234567890123456789012345678901234567890
+                    println!("Warning: `tango.stamp` and target `{}` have timestamps that differ only at \n\
+                                  nanosecond level precision. Tango currently treats such timestamps as,\n\
+                                  matching and will rebuild the target file rather than error",
+                             t.generate.display());
+                }
+
+                // got here: tango.stamp is not older than the target
+                // file.  So we fall through to the base case.
             }
         }
 
@@ -523,6 +613,10 @@ impl Context {
 
         }
 
+        // This loop gathers all of the .rs files that currently
+        // exist, and schedules transforms that would turn them into
+        // corresponding target .md files.
+
         // println!("gather-rs");
         for ent in WalkDir::new(src_path).into_iter() {
             let ent = try!(ent);
@@ -549,6 +643,11 @@ impl Context {
                 }
             }
         }
+
+        // This loop gathers all of the .md files that currently
+        // exist, and schedules transforms that would turn them into
+        // corresponding target .rs files.
+
         // println!("gather-md");
         for ent in WalkDir::new(lit_path).into_iter() {
             let ent = try!(ent);
@@ -580,6 +679,13 @@ impl Context {
                 }
             }
         }
+
+        // At this point we've scheduled all the transforms we want to
+        // run; they will be applied unconditionally, even if both
+        // source and target exist. (The intent is that a target
+        // younger than source would have been filtered during the
+        // .check_transform calls above.)
+
         Ok(())
     }
     fn generate_content(&mut self) -> Result<()> {
@@ -587,16 +693,19 @@ impl Context {
             let source = try!(File::open(&original.0));
             let target = try!(File::create(&generate.0));
             assert!(source_time > 0);
+            println!("generating lit {:?}", &generate.0);
             try!(rs2md(source, target));
-            try!(set_file_times(&generate.0,
-                                source_time.to_filetime(),
-                                source_time.to_filetime()));
+            let timestamp = source_time.to_filetime();
+            println!("backdating lit {:?} to {}", &generate.0, source_time.date_fulltime_badly());
+            try!(set_file_times(&generate.0, timestamp, timestamp));
         }
         for &mut Transform { ref original, ref generate, ref mut source_time, .. } in &mut self.lit_inputs {
             let source = try!(File::open(&original.0));
             let target = try!(File::create(&generate.0));
             assert!(*source_time > 0);
+            println!("generating src {:?}", &generate.0);
             try!(md2rs(source, target));
+            println!("backdating src {:?} to {}", &generate.0, source_time.date_fulltime_badly());
             try!(set_file_times(&generate.0,
                                 source_time.to_filetime(),
                                 source_time.to_filetime()));
@@ -609,59 +718,8 @@ impl Context {
                     #[cfg(not_possible_right_now)] assert_eq!(src_time, tgt_time);
                     // but it does not work, due to this bug:
                     // https://github.com/alexcrichton/filetime/issues/9
-                    //
-                    // So, as a work-around, we check if the condition
-                    // holds, and if it does not, then we *force* it
-                    // to hoid, by back-dating the *source file* in
-                    // the same manner that we did the target file
-                    // above.
-                    //
-                    // Further discussion: https://github.com/pnkfelix/tango/issues/13
 
-                    if src_time != tgt_time {
-                        println!("Note: Backdating source file: {NAME:?} \
-                                  from original timestamp {ORIG_TS:?} \
-                                  to (presumably truncated) timestamp: {TRUN_TS:?}",
-                                 NAME=(original.0).display(),
-                                 ORIG_TS=src_time,
-                                 TRUN_TS=tgt_time);
-
-                        try!(set_file_times(&original.0,
-                                            source_time.to_filetime(),
-                                            source_time.to_filetime()));
-
-                        let touched_source_time = source.modified();
-                        if let Ok(MtimeResult::Modified(src_time)) = touched_source_time {
-                            assert_eq!(src_time, tgt_time);
-
-                            // An odd artifact of
-                            // https://github.com/alexcrichton/filetime/issues/9
-                            // is that we can observe times with
-                            // greater precision than we can set them.
-                            // This leads to strangeness when we
-                            // attempt to guard against the user
-                            // concurrent modifying source files (see
-                            // `fn check_input_timestamps`), since we
-                            // ourselves *just* modified the timestamp
-                            // as well.
-                            //
-                            // So, adding hack on top of hack here,
-                            // not only will we backdate the timestamp
-                            // on the source file, but we will also
-                            // throw away our original knowledge of
-                            // the more precise timestamp in the
-                            // Transform, and replace it with the less
-                            // precise timestamp so that the final
-                            // sanity check still has a chance of
-                            // passing when control goes down this
-                            // path.
-                            if *source_time != src_time {
-                                *source_time = src_time;
-                            }
-                        } else {
-                            panic!("error reloading source time after backdating.");
-                        }
-                    }
+                    assert_eq!(src_time.to_ms(), tgt_time.to_ms());
                 }
                 (Ok(MtimeResult::NonExistant), _) => panic!("how could source not exist"),
                 (_, Ok(MtimeResult::NonExistant)) => panic!("how could target not exist"),
@@ -704,6 +762,8 @@ impl Context {
     fn adjust_stamp_timestamp(&mut self) -> Result<()> {
         if let Some(stamp) = self.newest_stamp {
             assert!(stamp > 0);
+            println!("re-stamping tango.stamp to {}", stamp.date_fulltime_badly());
+
             match set_file_times(STAMP, stamp.to_filetime(), stamp.to_filetime()) {
                 Ok(()) => Ok(()),
                 Err(e) => Err(Error::IoError(e)),
