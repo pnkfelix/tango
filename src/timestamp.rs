@@ -9,7 +9,7 @@ pub trait Timestamped {
     fn timestamp(&self) -> Timestamp;
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Ord, Debug)]
 pub struct Timestamp { pub secs: u64, pub nsecs: u64 }
 
 #[allow(non_snake_case)]
@@ -54,6 +54,15 @@ impl PartialEq<i64> for Timestamp {
 impl PartialOrd<u64> for Timestamp {
     fn partial_cmp(&self, other: &u64) -> Option<cmp::Ordering> {
         self.to_ms().partial_cmp(other)
+    }
+}
+
+impl PartialOrd<Timestamp> for Timestamp {
+    fn partial_cmp(&self, other: &Timestamp) -> Option<cmp::Ordering> {
+        match self.secs.partial_cmp(&other.secs) {
+            Some(cmp::Ordering::Equal) => self.nsecs.partial_cmp(&other.nsecs),
+            otherwise => otherwise,
+        }
     }
 }
 
