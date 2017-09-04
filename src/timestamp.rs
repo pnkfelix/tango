@@ -32,7 +32,86 @@ impl Timestamp {
         let t = self.to_filetime();
         filetime::set_file_times(p, t, t)
     }
+    pub fn date_fulltime_badly(&self) -> String {
+        // TODO: throw away this function if/when something like Joda
+        // time is available as a Rust crate.
+
+        // (Seconds since January 1, 1970).
+        let mut remain = self.to_filetime().seconds_relative_to_1970();
+
+        let mut year = None;
+        for y in 1970.. {
+            let secs_per_year = secs_per_year(y);
+            if remain > secs_per_year {
+                remain -= secs_per_year;
+            } else {
+                year = Some(y);
+                break;
+            }
+        }
+        let year = year.unwrap();
+
+        let mut month = None;
+        for i in 0..12 {
+            let secs_per_month = if is_leap_year(year) {
+                SECS_PER_DAY * DAYS_PER_MONTH_IN_LEAP[i]
+            } else {
+                SECS_PER_DAY * DAYS_PER_MONTH_IN_COMMON[i]
+            };
+            if remain > secs_per_month {
+                remain -= secs_per_month;
+            } else {
+                month = Some(i+1); // We count months starting from 1 ...
+                break;
+            }
+        }
+        let month = month.unwrap();
+
+        let day = remain / SECS_PER_DAY + 1; // ... and we count days starting from 1
+        let remain = remain % SECS_PER_DAY;
+
+        let hour = remain / SECS_PER_HOUR; // ... but we count hours from zero (military time)
+        let remain = remain % SECS_PER_HOUR;
+
+        let min = remain / SECS_PER_MIN; // ... and likewise count minutes from zero
+        let remain = remain % SECS_PER_MIN;
+
+        let sec = remain; // ... and likewise count seconds from zero
+        let nsec = self.nsecs; // ... et cetera.
+
+        format!("{YEAR:04}-{MONTH:02}-{DAY:02} {HOUR:02}:{MIN:02}:{SEC:02}.{NSEC} (GMT)",
+                YEAR=year, MONTH=month, DAY=day, HOUR=hour, MIN=min, SEC=sec, NSEC=nsec)
+    }
 }
+
+fn is_leap_year(gregorian_year: u64) -> bool {
+    let year = gregorian_year;
+    if !(year % 4 == 0) {
+        false
+    } else if !(year % 100 == 0) {
+        true
+    } else if !(year % 400 == 0) {
+        false
+    } else {
+        true
+    }
+}
+
+fn secs_per_year(gregorian_year: u64) -> u64 {
+    if is_leap_year(gregorian_year) {
+        SECS_PER_LEAP_YEAR
+    } else {
+        SECS_PER_COMMON_YEAR
+    }
+}
+
+const SECS_PER_LEAP_YEAR: u64 = 366 * SECS_PER_DAY;
+const SECS_PER_COMMON_YEAR: u64 = 365 * SECS_PER_DAY;
+const DAYS_PER_MONTH_IN_LEAP: [u64; 12] = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+const DAYS_PER_MONTH_IN_COMMON: [u64; 12] = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+const SECS_PER_DAY: u64 = 24 * SECS_PER_HOUR;
+const SECS_PER_HOUR: u64 = 60 * SECS_PER_MIN;
+const SECS_PER_MIN: u64 = 60;
 
 impl PartialEq<u64> for Timestamp {
     fn eq(&self, other: &u64) -> bool {
