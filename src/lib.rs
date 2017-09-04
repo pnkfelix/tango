@@ -592,14 +592,83 @@ impl Context {
                                 source_time.to_filetime(),
                                 source_time.to_filetime()));
         }
-        for &Transform { ref original, ref generate, source_time, .. } in &self.lit_inputs {
+        for &mut Transform { ref original, ref generate, ref mut source_time, .. } in &mut self.lit_inputs {
             let source = try!(File::open(&original.0));
             let target = try!(File::create(&generate.0));
-            assert!(source_time > 0);
+            assert!(*source_time > 0);
             try!(md2rs(source, target));
             try!(set_file_times(&generate.0,
                                 source_time.to_filetime(),
                                 source_time.to_filetime()));
+            let source = try!(File::open(&original.0));
+            let target = try!(File::open(&generate.0));
+            match (source.modified(), target.modified()) {
+                (Ok(MtimeResult::Modified(src_time)),
+                 Ok(MtimeResult::Modified(tgt_time))) => {
+                    // At this point, we would *like* to assert this:
+                    #[cfg(not_possible_right_now)] assert_eq!(src_time, tgt_time);
+                    // but it does not work, due to this bug:
+                    // https://github.com/alexcrichton/filetime/issues/9
+                    //
+                    // So, as a work-around, we check if the condition
+                    // holds, and if it does not, then we *force* it
+                    // to hoid, by back-dating the *source file* in
+                    // the same manner that we did the target file
+                    // above.
+                    //
+                    // Further discussion: https://github.com/pnkfelix/tango/issues/13
+
+                    if src_time != tgt_time {
+                        println!("Note: Backdating source file: {NAME:?} \
+                                  from original timestamp {ORIG_TS:?} \
+                                  to (presumably truncated) timestamp: {TRUN_TS:?}",
+                                 NAME=(original.0).display(),
+                                 ORIG_TS=src_time,
+                                 TRUN_TS=tgt_time);
+
+                        try!(set_file_times(&original.0,
+                                            source_time.to_filetime(),
+                                            source_time.to_filetime()));
+
+                        let touched_source_time = source.modified();
+                        if let Ok(MtimeResult::Modified(src_time)) = touched_source_time {
+                            assert_eq!(src_time, tgt_time);
+
+                            // An odd artifact of
+                            // https://github.com/alexcrichton/filetime/issues/9
+                            // is that we can observe times with
+                            // greater precision than we can set them.
+                            // This leads to strangeness when we
+                            // attempt to guard against the user
+                            // concurrent modifying source files (see
+                            // `fn check_input_timestamps`), since we
+                            // ourselves *just* modified the timestamp
+                            // as well.
+                            //
+                            // So, adding hack on top of hack here,
+                            // not only will we backdate the timestamp
+                            // on the source file, but we will also
+                            // throw away our original knowledge of
+                            // the more precise timestamp in the
+                            // Transform, and replace it with the less
+                            // precise timestamp so that the final
+                            // sanity check still has a chance of
+                            // passing when control goes down this
+                            // path.
+                            if *source_time != src_time {
+                                *source_time = src_time;
+                            }
+                        } else {
+                            panic!("error reloading source time after backdating.");
+                        }
+                    }
+                }
+                (Ok(MtimeResult::NonExistant), _) => panic!("how could source not exist"),
+                (_, Ok(MtimeResult::NonExistant)) => panic!("how could target not exist"),
+                (Err(_), Err(_)) => panic!("errored looking up both source and target times"),
+                (Err(_), _) => panic!("errored looking up source time"),
+                (_, Err(_)) => panic!("errored looking up target time"),
+            }
         }
         Ok(())
     }
