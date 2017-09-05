@@ -25,7 +25,7 @@ const BINARY_FILENAME: &'static str = "tango";
 const PRESERVE_TEMP_DIRS: bool = false;
 const REPORT_DIR_CONTENTS: bool = false;
 
-const REJECT_IF_TANGO_AFFECTS_STD_PORTS: bool = true;
+const REJECT_IF_TANGO_AFFECTS_STD_PORTS: bool = false;
 
 fn out_path() -> PathBuf {
     let out_dir = env::var("OUT_DIR").unwrap_or_else(|_| {
