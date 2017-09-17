@@ -175,6 +175,21 @@ impl Mtime for MdPath {
         }
     }
 }
+
+pub fn process_root_and_emit_rerun() -> Result<()> {
+    // write rerun-if-changed to output file
+    // currently this is a hack using cargo menifest links env var
+    let path = env::var("CARGO_MANIFEST_LINKS").unwrap();
+
+    for entry in WalkDir::new(path) {
+        let entry = entry.unwrap();
+        println!("\ncargo:rerun-if-changed={}", entry.path().display());
+    }
+
+    // call process root
+    process_root()
+}
+
 pub fn process_root() -> Result<()> {
     let _root = try!(env::current_dir());
     // println!("Tango is running from: {:?}", _root);
@@ -797,4 +812,3 @@ fn encode_to_url(code: &str) -> String {
 
 #[cfg(test)]
 mod testing;
-
