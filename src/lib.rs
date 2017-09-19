@@ -177,16 +177,23 @@ impl Mtime for MdPath {
 }
 
 pub fn process_root_and_emit_rerun() -> Result<()> {
-    // write rerun-if-changed to output file
-    // currently this is a hack using cargo menifest links env var
-    let path = env::var("CARGO_MANIFEST_LINKS").unwrap();
+    // This function:
+    // - Writes rerun-if-changed directives for files tango manages or interacts
+    // with in a crate calling tango.  These files are: everything in the src
+    // folder, tango.stamp, and build.rs.  
+    // - Calls process_root
 
-    for entry in WalkDir::new(path) {
-        let entry = entry.unwrap();
-        println!("\ncargo:rerun-if-changed={}", entry.path().display());
+    let current_directory = env::current_dir().unwrap();
+    let src = {
+        let mut s = current_directory.clone(); s.push("src"); s
+    };
+    for file in WalkDir::new(src).min_depth(1) {
+        let file = file.unwrap();
+        println!("cargo:rerun-if-changed={}", file.path().display());
     }
+    println!("cargo:rerun-if-changed={}/build.rs", current_directory.display());
+    println!("cargo:rerun-if-changed={}/tango.stamp", current_directory.display());
 
-    // call process root
     process_root()
 }
 
