@@ -30,6 +30,7 @@ pub const SRC_DIR: &'static str = "src";
 // is easier for now to just have the two directories be the same.
 pub const LIT_DIR: &'static str = "src";
 
+
 #[derive(Debug)]
 pub enum Error {
     IoError(io::Error),
@@ -63,7 +64,6 @@ impl From<md2rs::Exception> for Error {
         }
     }
 }
-
 
 impl fmt::Display for Error {
     fn fmt(&self, w: &mut fmt::Formatter) -> fmt::Result {
@@ -176,27 +176,6 @@ impl Mtime for MdPath {
     }
 }
 
-pub fn process_root_and_emit_rerun() -> Result<()> {
-    // This function:
-    // - Writes rerun-if-changed directives for files tango manages or interacts
-    // with in a crate calling tango.  These files are: everything in the src
-    // folder, tango.stamp, and build.rs.  
-    // - Calls process_root
-
-    let current_directory = env::current_dir().unwrap();
-    let src = {
-        let mut s = current_directory.clone(); s.push("src"); s
-    };
-    for file in WalkDir::new(src).min_depth(1) {
-        let file = file.unwrap();
-        println!("cargo:rerun-if-changed={}", file.path().display());
-    }
-    println!("cargo:rerun-if-changed={}/build.rs", current_directory.display());
-    println!("cargo:rerun-if-changed={}/tango.stamp", current_directory.display());
-
-    process_root()
-}
-
 pub fn process_root() -> Result<()> {
     let _root = try!(env::current_dir());
     // println!("Tango is running from: {:?}", _root);
@@ -264,11 +243,13 @@ struct RsPath(PathBuf);
 #[derive(Debug)]
 struct MdPath(PathBuf);
 
+
 struct Context {
     orig_stamp: Option<(File, mtime)>,
     src_inputs: Vec<Transform<RsPath, MdPath>>,
     lit_inputs: Vec<Transform<MdPath, RsPath>>,
     newest_stamp: Option<mtime>,
+    emit_rerun_if: bool,
 }
 
 trait Extensions {
@@ -473,6 +454,7 @@ impl Context {
             src_inputs: Vec::new(),
             lit_inputs: Vec::new(),
             newest_stamp: None,
+            emit_rerun_if: true,
         };
         Ok(c)
     }
@@ -481,7 +463,9 @@ impl Context {
         where X: ops::Deref<Target=Path> + Mtime,
               Y: ops::Deref<Target=Path> + Mtime,
     {
+
         use self::check::ErrorKind::*;
+
 
         let t_mod = match t.target_time {
             MtimeResult::Modified(t) => t,
@@ -653,6 +637,11 @@ impl Context {
             }
             let rs = RsPath::new(p.to_path_buf());
             try!(warn_if_nonexistant(&rs));
+
+            if self.emit_rerun_if {
+                println!("cargo:rerun-if-changed={}", &rs.display());
+            }
+
             let t = try!(rs.transform());
             match self.check_transform(&t) {
                 Ok(TransformNeed::Needed) => self.push_src(t),
