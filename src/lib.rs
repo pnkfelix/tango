@@ -31,6 +31,26 @@ pub const SRC_DIR: &'static str = "src";
 pub const LIT_DIR: &'static str = "src";
 
 
+pub struct Config {
+    rerun_if: bool,
+}
+
+impl Config {
+
+    pub fn new() -> Config {
+        Config {
+            rerun_if: false,
+        }
+    }
+
+    pub fn emit_rerun_if(&mut self) -> &mut Config {
+        self.rerun_if = true;
+        self
+    }
+
+}
+
+
 #[derive(Debug)]
 pub enum Error {
     IoError(io::Error),
@@ -176,14 +196,32 @@ impl Mtime for MdPath {
     }
 }
 
+pub fn process_root_with_config(config: Config) -> Result<()> {
+    let _root = try!(env::current_dir());
+    //println!("Tango is running from: {:?}", root);
+    env::set_current_dir(root).unwrap();
+
+    let emit_rerun_if = config.rerun_if;
+
+    let stamp_path = Path::new(STAMP);
+    if stamp_path.exists() {
+        process_with_stamp(try!(File::open(stamp_path)), emit_rerun_if)
+    } else {
+        process_without_stamp(emit_rerun_if)
+    }
+}
+
+
 pub fn process_root() -> Result<()> {
     let _root = try!(env::current_dir());
     // println!("Tango is running from: {:?}", _root);
+
+    let emit_rerun_if = false;
     let stamp_path = Path::new(STAMP);
     if stamp_path.exists() {
-        process_with_stamp(try!(File::open(stamp_path)))
+        process_with_stamp(try!(File::open(stamp_path)), emit_rerun_if)
     } else {
-        process_without_stamp()
+        process_without_stamp(emit_rerun_if)
     }
 }
 
@@ -210,7 +248,8 @@ pub fn process_root() -> Result<()> {
 // (It probably wouldn't be hard to unify the two functions into a
 //  single method on the `Context`, though.)
 
-fn process_with_stamp(stamp: File) -> Result<()> {
+fn process_with_stamp(stamp: File, emit_rerun_if: bool) -> Result<()> {
+    println!("\n\nemit rerun if: {:?}\n\n", emit_rerun_if);
     if let Ok(MtimeResult::Modified(ts)) = stamp.modified() {
         println!("Rerunning tango; last recorded run was stamped: {}",
                  ts.date_fulltime_badly());
@@ -218,6 +257,7 @@ fn process_with_stamp(stamp: File) -> Result<()> {
         panic!("why are we trying to process_with_stamp when given: {:?}", stamp);
     }
     let mut c = try!(Context::new(Some(stamp)));
+    c.emit_rerun_if = emit_rerun_if;
     try!(c.gather_inputs());
     try!(c.generate_content());
     try!(c.check_input_timestamps());
@@ -226,9 +266,11 @@ fn process_with_stamp(stamp: File) -> Result<()> {
     Ok(())
 }
 
-fn process_without_stamp() -> Result<()> {
+fn process_without_stamp(emit_rerun_if: bool) -> Result<()> {
     println!("Running tango; no previously recorded run");
+    println!("\n\nemit rerun if: {:?}\n\n", emit_rerun_if);
     let mut c = try!(Context::new(None));
+    c.emit_rerun_if = emit_rerun_if;
     try!(c.gather_inputs());
     try!(c.generate_content());
     try!(c.check_input_timestamps());
@@ -277,6 +319,7 @@ impl ops::Deref for MdPath {
 }
 
 fn check_path(typename: &str, p: &Path, ext: &str, root: &str) {
+    println!("\n in check_path, the root is: {:?}", root);
     if Extensions::extension(p) != Some(ext) { panic!("{t} requires `.{ext}` extension; path: {p:?}", t=typename, ext=ext, p=p); }
     if !p.starts_with(root) { panic!("{t} must be rooted at `{root}/`; path: {p:?}", t=typename, root=root, p=p); }
 }
@@ -659,8 +702,9 @@ impl Context {
         // exist, and schedules transforms that would turn them into
         // corresponding target .rs files.
 
-        // println!("gather-md");
+        //println!("gather-md, lit_path is: {:?}", lit_path);
         for ent in WalkDir::new(lit_path).into_iter() {
+            //println!("ent is {:?}", ent);
             let ent = try!(ent);
             let p = ent.path();
             if let Err(why) = keep_file_name(p) {
@@ -673,6 +717,11 @@ impl Context {
             }
             let md = MdPath::new(p.to_path_buf());
             try!(warn_if_nonexistant(&md));
+
+            if self.emit_rerun_if {
+                println!("cargo:rerun-if-changed={}", &md.display());
+            }
+
             let t = try!(md.transform());
             match self.check_transform(&t) {
                 Ok(TransformNeed::Needed) => {
