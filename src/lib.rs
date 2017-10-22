@@ -199,7 +199,7 @@ impl Mtime for MdPath {
 pub fn process_root_with_config(config: Config) -> Result<()> {
     let _root = try!(env::current_dir());
     //println!("Tango is running from: {:?}", root);
-    env::set_current_dir(root).unwrap();
+    env::set_current_dir(_root).unwrap();
 
     let emit_rerun_if = config.rerun_if;
 
