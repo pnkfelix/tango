@@ -17,32 +17,66 @@ use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::ops;
 use std::path::{Path, PathBuf};
+use std::cell::RefCell;
 
 use self::timestamp::{Timestamp, Timestamped};
 
 pub mod timestamp;
 
 pub const STAMP: &'static str = "tango.stamp";
-pub const SRC_DIR: &'static str = "src";
-
+//pub const SRC_DIR: &'static str = "src";
 // pnkfelix wanted the `LIT_DIR` to be `lit/`, but `cargo build`
 // currently assumes that *all* build sources live in `src/`. So it
 // is easier for now to just have the two directories be the same.
-pub const LIT_DIR: &'static str = "src";
+//pub const LIT_DIR: &'static str = "src/lit";
 
+thread_local! {
+    pub static SRC_DIR: RefCell<String> = RefCell::new("src".to_string());
+    pub static LIT_DIR: RefCell<String> = RefCell::new("src".to_string());
+}
+
+fn set_lit_dir(directory: String) {
+    LIT_DIR.with(|lit_dir| {
+        *lit_dir.borrow_mut() = directory
+    });
+}
+
+fn set_src_dir(directory: String) {
+    SRC_DIR.with(|src_dir| {
+        *src_dir.borrow_mut() = directory
+    });
+}
+
+fn get_lit_dir() -> String {
+    LIT_DIR.with(|lit_dir| lit_dir.borrow().clone())
+}
+
+fn get_src_dir() -> String {
+    SRC_DIR.with(|src_dir| src_dir.borrow().clone())
+}
 
 pub struct Config {
+    src_dir: String,
+    lit_dir: String,
     rerun_if: bool,
 }
 
 impl Config {
-
     pub fn new() -> Config {
         Config {
+            src_dir: String::from("src"),
+            lit_dir: String::from("src"),
             rerun_if: false,
         }
     }
-
+    pub fn set_src_dir(&mut self, new_src_dir: String) -> &mut Config {
+        self.src_dir = new_src_dir;
+        self
+    }
+    pub fn set_lit_dir(&mut self, new_lit_dir: String) -> &mut Config {
+        self.lit_dir = new_lit_dir;
+        self
+    }
     pub fn emit_rerun_if(&mut self) -> &mut Config {
         self.rerun_if = true;
         self
@@ -197,10 +231,11 @@ impl Mtime for MdPath {
 }
 
 pub fn process_root_with_config(config: Config) -> Result<()> {
-    let _root = try!(env::current_dir());
+    //let _root = try!(env::current_dir());
     //println!("Tango is running from: {:?}", root);
-    env::set_current_dir(_root).unwrap();
-
+    //env::set_current_dir(_root).unwrap();
+    set_lit_dir(config.lit_dir);
+    set_src_dir(config.src_dir);
     let emit_rerun_if = config.rerun_if;
 
     let stamp_path = Path::new(STAMP);
@@ -213,7 +248,7 @@ pub fn process_root_with_config(config: Config) -> Result<()> {
 
 
 pub fn process_root() -> Result<()> {
-    let _root = try!(env::current_dir());
+    //let _root = try!(env::current_dir());
     // println!("Tango is running from: {:?}", _root);
 
     let emit_rerun_if = false;
@@ -319,19 +354,19 @@ impl ops::Deref for MdPath {
 }
 
 fn check_path(typename: &str, p: &Path, ext: &str, root: &str) {
-    println!("\n in check_path, the root is: {:?}", root);
+    println!("\n in check_path, the root is: {r:?} , path is: {p:?}, ext is {e:?}", r=root, p=p, e=ext);
     if Extensions::extension(p) != Some(ext) { panic!("{t} requires `.{ext}` extension; path: {p:?}", t=typename, ext=ext, p=p); }
     if !p.starts_with(root) { panic!("{t} must be rooted at `{root}/`; path: {p:?}", t=typename, root=root, p=p); }
 }
 
 impl RsPath {
     fn new(p: PathBuf) -> RsPath {
-        check_path("RsPath", &p, "rs", SRC_DIR);
+        check_path("RsPath", &p, "rs", &get_src_dir());
         RsPath(p)
     }
     fn to_md(&self) -> MdPath {
         let mut p = PathBuf::new();
-        p.push(LIT_DIR);
+        p.push(get_lit_dir());
         for c in self.0.components().skip(1) { p.push(c.as_ref().to_str().expect("how else can I replace root?")); }
         p.set_extension("md");
         MdPath::new(p)
@@ -340,12 +375,12 @@ impl RsPath {
 
 impl MdPath {
     fn new(p: PathBuf) -> MdPath {
-        check_path("MdPath", &p, "md", LIT_DIR);
+        check_path("MdPath", &p, "md", &get_lit_dir());
         MdPath(p)
     }
     fn to_rs(&self) -> RsPath {
         let mut p = PathBuf::new();
-        p.push(SRC_DIR);
+        p.push(get_src_dir());
         for c in self.0.components().skip(1) { p.push(c.as_ref().to_str().expect("how else can I replace root?")); }
         p.set_extension("rs");
         RsPath::new(p)
@@ -595,8 +630,10 @@ impl Context {
 
     #[cfg(not_now)]
     fn report_dir(&self, p: &Path) -> Result<()> {
-        let src_path = Path::new(SRC_DIR);
-        let lit_path = Path::new(LIT_DIR);
+        let src_dir = get_src_dir();
+        let lit_dir = get_lit_dir();
+        let src_path = Path::new(&src_dir);
+        let lit_path = Path::new(&lit_dir);
 
         for (i, ent) in try!(WalkDir::new(p)).enumerate() {
             let ent = try!(ent);
@@ -627,8 +664,10 @@ impl Context {
 
     fn gather_inputs(&mut self) -> Result<()> {
         // println!("gather_inputs");
-        let src_path = Path::new(SRC_DIR);
-        let lit_path = Path::new(LIT_DIR);
+        let src_dir = get_src_dir();
+        let lit_dir = get_lit_dir();
+        let src_path = Path::new(&src_dir);
+        let lit_path = Path::new(&lit_dir);
 
         fn keep_file_name(p: &Path) -> std::result::Result<(), &'static str> {
             match p.file_name().and_then(|x|x.to_str()) {
