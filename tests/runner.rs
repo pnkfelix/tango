@@ -133,12 +133,14 @@ fn setup_src_and_lit_dirs() {
     CURRENT_DIR_PREFIX.with(|p| {
         let p = p.borrow_mut();
         let mut p_src = p.clone();
-        p_src.push(tango::SRC_DIR);
-        fs::create_dir(p_src).unwrap_or_panic(&format!("failed to create {}", tango::SRC_DIR));
-        if tango::LIT_DIR == tango::SRC_DIR { return; }
+	let src_dir = &tango::get_src_dir();
+	let lit_dir = &tango::get_lit_dir();
+        p_src.push(src_dir);
+        fs::create_dir(p_src).unwrap_or_panic(&format!("failed to create {}", src_dir));
+        if lit_dir == src_dir { return; }
         let mut p_lit = p.clone();
-        p_lit.push(tango::LIT_DIR);
-        fs::create_dir(p_lit).unwrap_or_panic(&format!("failed to create {}", tango::LIT_DIR));
+        p_lit.push(lit_dir);
+        fs::create_dir(p_lit).unwrap_or_panic(&format!("failed to create {}", lit_dir));
     })
 }
 
@@ -149,10 +151,12 @@ impl Target {
         CURRENT_DIR_PREFIX.with(|p| {
             let p = p.borrow_mut();
             let mut p = p.clone();
+            let src_dir = tango::get_src_dir();
+            let lit_dir = tango::get_lit_dir();
             match *self {
                 Target::Root => {}
-                Target::Src => p.push(tango::SRC_DIR),
-                Target::Lit => p.push(tango::LIT_DIR),
+                Target::Src => p.push(src_dir),
+                Target::Lit => p.push(lit_dir),
             }
             p.push(filename);
             p

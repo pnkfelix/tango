@@ -47,11 +47,13 @@ fn set_src_dir(directory: String) {
     });
 }
 
-fn get_lit_dir() -> String {
+/// Returns the current directory for storing the literate .md files
+pub fn get_lit_dir() -> String {
     LIT_DIR.with(|lit_dir| lit_dir.borrow().clone())
 }
 
-fn get_src_dir() -> String {
+/// Returns the current directory for storing the "source" .rs files
+pub fn get_src_dir() -> String {
     SRC_DIR.with(|src_dir| src_dir.borrow().clone())
 }
 
