@@ -17,18 +17,73 @@ use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::ops;
 use std::path::{Path, PathBuf};
+use std::cell::RefCell;
 
 use self::timestamp::{Timestamp, Timestamped};
 
 pub mod timestamp;
 
 pub const STAMP: &'static str = "tango.stamp";
-pub const SRC_DIR: &'static str = "src";
-
+//pub const SRC_DIR: &'static str = "src";
 // pnkfelix wanted the `LIT_DIR` to be `lit/`, but `cargo build`
 // currently assumes that *all* build sources live in `src/`. So it
 // is easier for now to just have the two directories be the same.
-pub const LIT_DIR: &'static str = "src";
+//pub const LIT_DIR: &'static str = "src/lit";
+
+thread_local! {
+    pub static SRC_DIR: RefCell<String> = RefCell::new("src".to_string());
+    pub static LIT_DIR: RefCell<String> = RefCell::new("src".to_string());
+}
+
+fn set_lit_dir(directory: String) {
+    LIT_DIR.with(|lit_dir| {
+        *lit_dir.borrow_mut() = directory
+    });
+}
+
+fn set_src_dir(directory: String) {
+    SRC_DIR.with(|src_dir| {
+        *src_dir.borrow_mut() = directory
+    });
+}
+
+fn get_lit_dir() -> String {
+    LIT_DIR.with(|lit_dir| lit_dir.borrow().clone())
+}
+
+fn get_src_dir() -> String {
+    SRC_DIR.with(|src_dir| src_dir.borrow().clone())
+}
+
+pub struct Config {
+    src_dir: String,
+    lit_dir: String,
+    rerun_if: bool,
+}
+
+impl Config {
+    pub fn new() -> Config {
+        Config {
+            src_dir: String::from("src"),
+            lit_dir: String::from("src"),
+            rerun_if: false,
+        }
+    }
+    pub fn set_src_dir(&mut self, new_src_dir: String) -> &mut Config {
+        self.src_dir = new_src_dir;
+        self
+    }
+    pub fn set_lit_dir(&mut self, new_lit_dir: String) -> &mut Config {
+        self.lit_dir = new_lit_dir;
+        self
+    }
+    pub fn emit_rerun_if(&mut self) -> &mut Config {
+        self.rerun_if = true;
+        self
+    }
+
+}
+
 
 #[derive(Debug)]
 pub enum Error {
@@ -63,7 +118,6 @@ impl From<md2rs::Exception> for Error {
         }
     }
 }
-
 
 impl fmt::Display for Error {
     fn fmt(&self, w: &mut fmt::Formatter) -> fmt::Result {
@@ -175,14 +229,34 @@ impl Mtime for MdPath {
         }
     }
 }
-pub fn process_root() -> Result<()> {
-    let _root = try!(env::current_dir());
-    // println!("Tango is running from: {:?}", _root);
+
+pub fn process_root_with_config(config: Config) -> Result<()> {
+    //let _root = try!(env::current_dir());
+    //println!("Tango is running from: {:?}", root);
+    //env::set_current_dir(_root).unwrap();
+    set_lit_dir(config.lit_dir);
+    set_src_dir(config.src_dir);
+    let emit_rerun_if = config.rerun_if;
+
     let stamp_path = Path::new(STAMP);
     if stamp_path.exists() {
-        process_with_stamp(try!(File::open(stamp_path)))
+        process_with_stamp(try!(File::open(stamp_path)), emit_rerun_if)
     } else {
-        process_without_stamp()
+        process_without_stamp(emit_rerun_if)
+    }
+}
+
+
+pub fn process_root() -> Result<()> {
+    //let _root = try!(env::current_dir());
+    // println!("Tango is running from: {:?}", _root);
+
+    let emit_rerun_if = false;
+    let stamp_path = Path::new(STAMP);
+    if stamp_path.exists() {
+        process_with_stamp(try!(File::open(stamp_path)), emit_rerun_if)
+    } else {
+        process_without_stamp(emit_rerun_if)
     }
 }
 
@@ -209,7 +283,8 @@ pub fn process_root() -> Result<()> {
 // (It probably wouldn't be hard to unify the two functions into a
 //  single method on the `Context`, though.)
 
-fn process_with_stamp(stamp: File) -> Result<()> {
+fn process_with_stamp(stamp: File, emit_rerun_if: bool) -> Result<()> {
+    println!("\n\nemit rerun if: {:?}\n\n", emit_rerun_if);
     if let Ok(MtimeResult::Modified(ts)) = stamp.modified() {
         println!("Rerunning tango; last recorded run was stamped: {}",
                  ts.date_fulltime_badly());
@@ -217,6 +292,7 @@ fn process_with_stamp(stamp: File) -> Result<()> {
         panic!("why are we trying to process_with_stamp when given: {:?}", stamp);
     }
     let mut c = try!(Context::new(Some(stamp)));
+    c.emit_rerun_if = emit_rerun_if;
     try!(c.gather_inputs());
     try!(c.generate_content());
     try!(c.check_input_timestamps());
@@ -225,9 +301,11 @@ fn process_with_stamp(stamp: File) -> Result<()> {
     Ok(())
 }
 
-fn process_without_stamp() -> Result<()> {
+fn process_without_stamp(emit_rerun_if: bool) -> Result<()> {
     println!("Running tango; no previously recorded run");
+    println!("\n\nemit rerun if: {:?}\n\n", emit_rerun_if);
     let mut c = try!(Context::new(None));
+    c.emit_rerun_if = emit_rerun_if;
     try!(c.gather_inputs());
     try!(c.generate_content());
     try!(c.check_input_timestamps());
@@ -242,11 +320,13 @@ struct RsPath(PathBuf);
 #[derive(Debug)]
 struct MdPath(PathBuf);
 
+
 struct Context {
     orig_stamp: Option<(File, mtime)>,
     src_inputs: Vec<Transform<RsPath, MdPath>>,
     lit_inputs: Vec<Transform<MdPath, RsPath>>,
     newest_stamp: Option<mtime>,
+    emit_rerun_if: bool,
 }
 
 trait Extensions {
@@ -274,18 +354,19 @@ impl ops::Deref for MdPath {
 }
 
 fn check_path(typename: &str, p: &Path, ext: &str, root: &str) {
+    println!("\n in check_path, the root is: {r:?} , path is: {p:?}, ext is {e:?}", r=root, p=p, e=ext);
     if Extensions::extension(p) != Some(ext) { panic!("{t} requires `.{ext}` extension; path: {p:?}", t=typename, ext=ext, p=p); }
     if !p.starts_with(root) { panic!("{t} must be rooted at `{root}/`; path: {p:?}", t=typename, root=root, p=p); }
 }
 
 impl RsPath {
     fn new(p: PathBuf) -> RsPath {
-        check_path("RsPath", &p, "rs", SRC_DIR);
+        check_path("RsPath", &p, "rs", &get_src_dir());
         RsPath(p)
     }
     fn to_md(&self) -> MdPath {
         let mut p = PathBuf::new();
-        p.push(LIT_DIR);
+        p.push(get_lit_dir());
         for c in self.0.components().skip(1) { p.push(c.as_ref().to_str().expect("how else can I replace root?")); }
         p.set_extension("md");
         MdPath::new(p)
@@ -294,12 +375,12 @@ impl RsPath {
 
 impl MdPath {
     fn new(p: PathBuf) -> MdPath {
-        check_path("MdPath", &p, "md", LIT_DIR);
+        check_path("MdPath", &p, "md", &get_lit_dir());
         MdPath(p)
     }
     fn to_rs(&self) -> RsPath {
         let mut p = PathBuf::new();
-        p.push(SRC_DIR);
+        p.push(get_src_dir());
         for c in self.0.components().skip(1) { p.push(c.as_ref().to_str().expect("how else can I replace root?")); }
         p.set_extension("rs");
         RsPath::new(p)
@@ -451,6 +532,7 @@ impl Context {
             src_inputs: Vec::new(),
             lit_inputs: Vec::new(),
             newest_stamp: None,
+            emit_rerun_if: true,
         };
         Ok(c)
     }
@@ -459,7 +541,9 @@ impl Context {
         where X: ops::Deref<Target=Path> + Mtime,
               Y: ops::Deref<Target=Path> + Mtime,
     {
+
         use self::check::ErrorKind::*;
+
 
         let t_mod = match t.target_time {
             MtimeResult::Modified(t) => t,
@@ -546,8 +630,10 @@ impl Context {
 
     #[cfg(not_now)]
     fn report_dir(&self, p: &Path) -> Result<()> {
-        let src_path = Path::new(SRC_DIR);
-        let lit_path = Path::new(LIT_DIR);
+        let src_dir = get_src_dir();
+        let lit_dir = get_lit_dir();
+        let src_path = Path::new(&src_dir);
+        let lit_path = Path::new(&lit_dir);
 
         for (i, ent) in try!(WalkDir::new(p)).enumerate() {
             let ent = try!(ent);
@@ -578,8 +664,10 @@ impl Context {
 
     fn gather_inputs(&mut self) -> Result<()> {
         // println!("gather_inputs");
-        let src_path = Path::new(SRC_DIR);
-        let lit_path = Path::new(LIT_DIR);
+        let src_dir = get_src_dir();
+        let lit_dir = get_lit_dir();
+        let src_path = Path::new(&src_dir);
+        let lit_path = Path::new(&lit_dir);
 
         fn keep_file_name(p: &Path) -> std::result::Result<(), &'static str> {
             match p.file_name().and_then(|x|x.to_str()) {
@@ -631,6 +719,11 @@ impl Context {
             }
             let rs = RsPath::new(p.to_path_buf());
             try!(warn_if_nonexistant(&rs));
+
+            if self.emit_rerun_if {
+                println!("cargo:rerun-if-changed={}", &rs.display());
+            }
+
             let t = try!(rs.transform());
             match self.check_transform(&t) {
                 Ok(TransformNeed::Needed) => self.push_src(t),
@@ -648,8 +741,9 @@ impl Context {
         // exist, and schedules transforms that would turn them into
         // corresponding target .rs files.
 
-        // println!("gather-md");
+        //println!("gather-md, lit_path is: {:?}", lit_path);
         for ent in WalkDir::new(lit_path).into_iter() {
+            //println!("ent is {:?}", ent);
             let ent = try!(ent);
             let p = ent.path();
             if let Err(why) = keep_file_name(p) {
@@ -662,6 +756,11 @@ impl Context {
             }
             let md = MdPath::new(p.to_path_buf());
             try!(warn_if_nonexistant(&md));
+
+            if self.emit_rerun_if {
+                println!("cargo:rerun-if-changed={}", &md.display());
+            }
+
             let t = try!(md.transform());
             match self.check_transform(&t) {
                 Ok(TransformNeed::Needed) => {
@@ -797,4 +896,3 @@ fn encode_to_url(code: &str) -> String {
 
 #[cfg(test)]
 mod testing;
-
