@@ -12,6 +12,7 @@ use walkdir::{WalkDir};
 use std::convert;
 use std::env;
 use std::error::Error as ErrorTrait;
+use std::ffi::OsStr;
 use std::fmt;
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
@@ -369,7 +370,10 @@ impl RsPath {
     fn to_md(&self) -> MdPath {
         let mut p = PathBuf::new();
         p.push(get_lit_dir());
-        for c in self.0.components().skip(1) { p.push(c.as_ref().to_str().expect("how else can I replace root?")); }
+        for c in self.0.components().skip(1) {
+            let c: &OsStr = c.as_ref();
+            p.push(c.to_str().expect("how else can I replace root?"));
+        }
         p.set_extension("md");
         MdPath::new(p)
     }
@@ -383,7 +387,10 @@ impl MdPath {
     fn to_rs(&self) -> RsPath {
         let mut p = PathBuf::new();
         p.push(get_src_dir());
-        for c in self.0.components().skip(1) { p.push(c.as_ref().to_str().expect("how else can I replace root?")); }
+        for c in self.0.components().skip(1) {
+            let c: &OsStr = c.as_ref();
+            p.push(c.to_str().expect("how else can I replace root?"));
+        }
         p.set_extension("rs");
         RsPath::new(p)
     }
