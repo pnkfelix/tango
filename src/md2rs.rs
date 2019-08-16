@@ -10,7 +10,12 @@ pub struct Converter {
 use super::Warning;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
-enum State { MarkdownBlank, MarkdownText, MarkdownMeta, Rust, }
+enum State {
+    MarkdownBlank,
+    MarkdownText,
+    MarkdownMeta,
+    Rust,
+}
 impl Converter {
     pub fn new() -> Converter {
         Converter {
@@ -34,7 +39,7 @@ impl From<io::Error> for Exception {
 }
 
 impl Converter {
-    pub fn convert<R:io::Read, W:io::Write>(mut self, r:R, mut w:W) -> Result<(), Exception> {
+    pub fn convert<R: io::Read, W: io::Write>(mut self, r: R, mut w: W) -> Result<(), Exception> {
         let source = io::BufReader::new(r);
         for line in source.lines() {
             let line = try!(line);
@@ -51,37 +56,31 @@ impl Converter {
         let str9 = line.chars().take(9).collect::<String>();
         let str7 = line.chars().take(7).collect::<String>();
         match (self.state, &str7[..], &str9[..]) {
-            (State::MarkdownBlank, "```rust", _) |
-            (State::MarkdownText, "```rust", _) => {
+            (State::MarkdownBlank, "```rust", _) | (State::MarkdownText, "```rust", _) => {
                 self.buffered_lines = String::new();
-                let rest =  &line.chars().skip(7).collect::<String>();
+                let rest = &line.chars().skip(7).collect::<String>();
                 if rest != "" {
                     try!(self.transition(w, State::MarkdownMeta));
                     try!(self.meta_note(&rest, w));
                 }
                 self.transition(w, State::Rust)
             }
-            (State::MarkdownBlank, _, "```{.rust") |
-            (State::MarkdownText, _, "```{.rust") => {
+            (State::MarkdownBlank, _, "```{.rust") | (State::MarkdownText, _, "```{.rust") => {
                 self.buffered_lines = String::new();
-                let rest =  &line.chars().skip(9).collect::<String>();
+                let rest = &line.chars().skip(9).collect::<String>();
                 if rest != "" {
                     try!(self.transition(w, State::MarkdownMeta));
                     try!(self.meta_note(&format!(" {{{}", rest), w));
                 }
                 self.transition(w, State::Rust)
             }
-            (State::Rust, "```", _) => {
-                self.transition(w, State::MarkdownBlank)
-            }
+            (State::Rust, "```", _) => self.transition(w, State::MarkdownBlank),
 
             // FIXME: accum blank lines and only emit them with
             // prefix if there's no state transition; otherwise
             // emit them with no prefix. (This is in part the
             // motivation for the `fn finish_section` design.)
-            (_, "", _) => {
-                self.blank_line(w)
-            }
+            (_, "", _) => self.blank_line(w),
 
             _ => {
                 // HACK: if we find anything that looks like a markdown-named playpen link ...
@@ -96,14 +95,14 @@ impl Converter {
                     // the user, and suggest they re-run `tango` after
                     // touching the file to generate matching url.
                     let expect = super::encode_to_url(&self.buffered_lines);
-                    let actual = &line[(close+3)..];
+                    let actual = &line[(close + 3)..];
                     if expect != actual {
                         self.warnings.push(Warning::EncodedUrlMismatch {
                             actual: actual.to_string(),
-                            expect: expect
+                            expect: expect,
                         })
                     }
-                    self.name_block(line, &line[open+1..close], w)
+                    self.name_block(line, &line[open + 1..close], w)
                 } else {
                     self.nonblank_line(line, w)
                 }
@@ -130,15 +129,12 @@ impl Converter {
         };
         for _ in 0..self.blank_line_count {
             try!(writeln!(w, "{}", blank_prefix));
-
         }
         self.blank_line_count = 0;
 
         match self.state {
-            State::MarkdownBlank =>
-                try!(self.transition(w, State::MarkdownText)),
-            State::MarkdownMeta |
-            State::MarkdownText => {}
+            State::MarkdownBlank => try!(self.transition(w, State::MarkdownText)),
+            State::MarkdownMeta | State::MarkdownText => {}
             State::Rust => {
                 self.buffered_lines.push_str("\n");
                 self.buffered_lines.push_str(line);
@@ -153,9 +149,7 @@ impl Converter {
             State::Rust => {
                 self.buffered_lines.push_str("\n");
             }
-            State::MarkdownBlank |
-            State::MarkdownMeta |
-            State::MarkdownText => {}
+            State::MarkdownBlank | State::MarkdownMeta | State::MarkdownText => {}
         }
         self.blank_line_count += 1;
         Ok(())

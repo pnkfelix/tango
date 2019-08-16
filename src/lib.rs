@@ -7,8 +7,9 @@ extern crate url;
 extern crate walkdir;
 
 use filetime::set_file_times;
-use walkdir::{WalkDir};
+use walkdir::WalkDir;
 
+use std::cell::RefCell;
 use std::convert;
 use std::env;
 use std::error::Error as ErrorTrait;
@@ -18,7 +19,6 @@ use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::ops;
 use std::path::{Path, PathBuf};
-use std::cell::RefCell;
 
 use self::timestamp::{Timestamp, Timestamped};
 
@@ -37,15 +37,11 @@ thread_local! {
 }
 
 fn set_lit_dir(directory: String) {
-    LIT_DIR.with(|lit_dir| {
-        *lit_dir.borrow_mut() = directory
-    });
+    LIT_DIR.with(|lit_dir| *lit_dir.borrow_mut() = directory);
 }
 
 fn set_src_dir(directory: String) {
-    SRC_DIR.with(|src_dir| {
-        *src_dir.borrow_mut() = directory
-    });
+    SRC_DIR.with(|src_dir| *src_dir.borrow_mut() = directory);
 }
 
 /// Returns the current directory for storing the literate .md files
@@ -84,31 +80,39 @@ impl Config {
         self.rerun_if = true;
         self
     }
-
 }
-
 
 #[derive(Debug)]
 pub enum Error {
     IoError(io::Error),
-    CheckInputError { error: check::Error },
+    CheckInputError {
+        error: check::Error,
+    },
     MtimeError(PathBuf),
-    ConcurrentUpdate { path_buf: PathBuf, old_time: mtime, new_time: mtime },
+    ConcurrentUpdate {
+        path_buf: PathBuf,
+        old_time: mtime,
+        new_time: mtime,
+    },
     Warnings(Vec<Warning>),
 }
 
 #[derive(Debug)]
 pub enum Warning {
-    EncodedUrlMismatch { actual: String, expect: String }
+    EncodedUrlMismatch { actual: String, expect: String },
 }
 
 impl fmt::Display for Warning {
     fn fmt(&self, w: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Warning::EncodedUrlMismatch { ref actual, ref expect } => {
-                write!(w, "mismatch between encoded url, expect: {} actual: {}",
-                       expect, actual)
-            }
+            Warning::EncodedUrlMismatch {
+                ref actual,
+                ref expect,
+            } => write!(
+                w,
+                "mismatch between encoded url, expect: {} actual: {}",
+                expect, actual
+            ),
         }
     }
 }
@@ -125,16 +129,18 @@ impl From<md2rs::Exception> for Error {
 impl fmt::Display for Error {
     fn fmt(&self, w: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::IoError(_) =>
-                write!(w, "IO error running `tango`"),
-            Error::CheckInputError { .. } =>
-                write!(w, "input check errors running `tango`"),
-            Error::MtimeError(ref p) =>
-                write!(w, "modification time error from `tango` checking {}",
-                       p.to_string_lossy()),
-            Error::ConcurrentUpdate { ref path_buf, .. } =>
-                write!(w, "concurrent update during `tango` to source file {}",
-                       path_buf.to_string_lossy()),
+            Error::IoError(_) => write!(w, "IO error running `tango`"),
+            Error::CheckInputError { .. } => write!(w, "input check errors running `tango`"),
+            Error::MtimeError(ref p) => write!(
+                w,
+                "modification time error from `tango` checking {}",
+                p.to_string_lossy()
+            ),
+            Error::ConcurrentUpdate { ref path_buf, .. } => write!(
+                w,
+                "concurrent update during `tango` to source file {}",
+                path_buf.to_string_lossy()
+            ),
             Error::Warnings(ref warnings) => {
                 for warn in warnings {
                     try!(write!(w, "WARNING: {}", warn));
@@ -149,9 +155,7 @@ impl ErrorTrait for Error {
     fn description(&self) -> &str {
         match *self {
             Error::IoError(ref e) => e.description(),
-            Error::CheckInputError { ref error } => {
-                error.description()
-            }
+            Error::CheckInputError { ref error } => error.description(),
             Error::MtimeError(_) => "Modification time check error",
             Error::ConcurrentUpdate { .. } => "concurrent update",
             Error::Warnings(_) => "warnings",
@@ -160,12 +164,8 @@ impl ErrorTrait for Error {
     fn cause(&self) -> Option<&ErrorTrait> {
         match *self {
             Error::IoError(ref e) => Some(e),
-            Error::CheckInputError { ref error, .. } => {
-                Some(error)
-            }
-            Error::Warnings(_) |
-            Error::MtimeError(_) |
-            Error::ConcurrentUpdate { .. } => None,
+            Error::CheckInputError { ref error, .. } => Some(error),
+            Error::Warnings(_) | Error::MtimeError(_) | Error::ConcurrentUpdate { .. } => None,
         }
     }
 }
@@ -193,7 +193,9 @@ enum MtimeResult {
     Modified(mtime),
 }
 
-trait Mtime { fn modified(&self) -> Result<MtimeResult>; }
+trait Mtime {
+    fn modified(&self) -> Result<MtimeResult>;
+}
 impl Mtime for File {
     fn modified(&self) -> Result<MtimeResult> {
         // #![allow(deprecated)]
@@ -249,7 +251,6 @@ pub fn process_root_with_config(config: Config) -> Result<()> {
     }
 }
 
-
 pub fn process_root() -> Result<()> {
     //let _root = try!(env::current_dir());
     // println!("Tango is running from: {:?}", _root);
@@ -289,10 +290,15 @@ pub fn process_root() -> Result<()> {
 fn process_with_stamp(stamp: File, emit_rerun_if: bool) -> Result<()> {
     println!("\n\nemit rerun if: {:?}\n\n", emit_rerun_if);
     if let Ok(MtimeResult::Modified(ts)) = stamp.modified() {
-        println!("Rerunning tango; last recorded run was stamped: {}",
-                 ts.date_fulltime_badly());
+        println!(
+            "Rerunning tango; last recorded run was stamped: {}",
+            ts.date_fulltime_badly()
+        );
     } else {
-        panic!("why are we trying to process_with_stamp when given: {:?}", stamp);
+        panic!(
+            "why are we trying to process_with_stamp when given: {:?}",
+            stamp
+        );
     }
     let mut c = try!(Context::new(Some(stamp)));
     c.emit_rerun_if = emit_rerun_if;
@@ -323,7 +329,6 @@ struct RsPath(PathBuf);
 #[derive(Debug)]
 struct MdPath(PathBuf);
 
-
 struct Context {
     orig_stamp: Option<(File, mtime)>,
     src_inputs: Vec<Transform<RsPath, MdPath>>,
@@ -344,22 +349,47 @@ trait Extensions {
 
 impl Extensions for Path {
     fn extension(&self) -> Option<&str> {
-        Path::extension(self).and_then(|s|s.to_str())
+        Path::extension(self).and_then(|s| s.to_str())
     }
 }
 
 impl ops::Deref for RsPath {
-    type Target = Path; fn deref(&self) -> &Path { &self.0 }
+    type Target = Path;
+    fn deref(&self) -> &Path {
+        &self.0
+    }
 }
 
 impl ops::Deref for MdPath {
-    type Target = Path; fn deref(&self) -> &Path { &self.0 }
+    type Target = Path;
+    fn deref(&self) -> &Path {
+        &self.0
+    }
 }
 
 fn check_path(typename: &str, p: &Path, ext: &str, root: &str) {
-    println!("\n in check_path, the root is: {r:?} , path is: {p:?}, ext is {e:?}", r=root, p=p, e=ext);
-    if Extensions::extension(p) != Some(ext) { panic!("{t} requires `.{ext}` extension; path: {p:?}", t=typename, ext=ext, p=p); }
-    if !p.starts_with(root) { panic!("{t} must be rooted at `{root}/`; path: {p:?}", t=typename, root=root, p=p); }
+    println!(
+        "\n in check_path, the root is: {r:?} , path is: {p:?}, ext is {e:?}",
+        r = root,
+        p = p,
+        e = ext
+    );
+    if Extensions::extension(p) != Some(ext) {
+        panic!(
+            "{t} requires `.{ext}` extension; path: {p:?}",
+            t = typename,
+            ext = ext,
+            p = p
+        );
+    }
+    if !p.starts_with(root) {
+        panic!(
+            "{t} must be rooted at `{root}/`; path: {p:?}",
+            t = typename,
+            root = root,
+            p = p
+        );
+    }
 }
 
 impl RsPath {
@@ -423,22 +453,27 @@ trait Transforms: Sized + Mtime + fmt::Debug {
                 return Err(e);
             }
         };
-        Ok(Transform { source_time: source_time,
-                       target_time: target_time,
-                       original: self,
-                       generate: target,
+        Ok(Transform {
+            source_time: source_time,
+            target_time: target_time,
+            original: self,
+            generate: target,
         })
     }
 }
 
 impl Transforms for RsPath {
     type Target = MdPath;
-    fn target(&self) -> MdPath { self.to_md() }
+    fn target(&self) -> MdPath {
+        self.to_md()
+    }
 }
 
 impl Transforms for MdPath {
     type Target = RsPath;
-    fn target(&self) -> RsPath { self.to_rs() }
+    fn target(&self) -> RsPath {
+        self.to_rs()
+    }
 }
 
 #[derive(Debug)]
@@ -450,12 +485,12 @@ pub struct Transform<X, Y> {
 }
 
 pub mod check {
+    use super::Transform;
     use std::error::Error as ErrorTrait;
     use std::fmt;
     use std::ops;
     use std::path::{Path, PathBuf};
     use std::result;
-    use super::Transform;
     pub type PathTransform = Transform<PathBuf, PathBuf>;
     #[derive(Debug)]
     pub enum ErrorKind {
@@ -469,20 +504,23 @@ pub mod check {
     impl fmt::Display for Error {
         fn fmt(&self, w: &mut fmt::Formatter) -> fmt::Result {
             match self.0 {
-                ErrorKind::TargetYoungerThanOriginal { ref tgt, ref src } => {
-                    write!(w, "target `{}` is younger than source `{}`; \
-                               therefore we assume target has modifications that need to be preserved.",
-                           tgt, src)
-                }
-                ErrorKind::NoTangoStampExists { ref src, ref tgt } => {
-                    write!(w, "both source `{}` and target `{}` exist but no `tango.stamp` is present",
-                           src, tgt)
-                }
-                ErrorKind::TangoStampOlderThanTarget { ref tgt } => {
-                    write!(w, "`tango.stamp` is older than target `{}`; \
-                               therefore we assume source and target have diverged since last tango run.",
-                           tgt)
-                }
+                ErrorKind::TargetYoungerThanOriginal { ref tgt, ref src } => write!(
+                    w,
+                    "target `{}` is younger than source `{}`; \
+                     therefore we assume target has modifications that need to be preserved.",
+                    tgt, src
+                ),
+                ErrorKind::NoTangoStampExists { ref src, ref tgt } => write!(
+                    w,
+                    "both source `{}` and target `{}` exist but no `tango.stamp` is present",
+                    src, tgt
+                ),
+                ErrorKind::TangoStampOlderThanTarget { ref tgt } => write!(
+                    w,
+                    "`tango.stamp` is older than target `{}`; \
+                     therefore we assume source and target have diverged since last tango run.",
+                    tgt
+                ),
             }
         }
     }
@@ -490,7 +528,7 @@ pub mod check {
     impl ErrorTrait for Error {
         fn description(&self) -> &str {
             match self.0 {
-                ErrorKind::TargetYoungerThanOriginal { .. }=> {
+                ErrorKind::TargetYoungerThanOriginal { .. } => {
                     "target is younger than source; \
                      therefore we assume target has modifications that need to be preserved."
                 }
@@ -507,21 +545,27 @@ pub mod check {
 
     pub type Result<X> = result::Result<X, Error>;
 
-    impl<X,Y> Transform<X, Y>
-        where X: ops::Deref<Target=Path>, Y: ops::Deref<Target=Path>
+    impl<X, Y> Transform<X, Y>
+    where
+        X: ops::Deref<Target = Path>,
+        Y: ops::Deref<Target = Path>,
     {
         pub fn error(&self, kind: ErrorKind) -> Error {
-            let t = Transform { original: self.original.to_path_buf(),
-                                generate: self.generate.to_path_buf(),
-                                source_time: self.source_time,
-                                target_time: self.target_time,
+            let t = Transform {
+                original: self.original.to_path_buf(),
+                generate: self.generate.to_path_buf(),
+                source_time: self.source_time,
+                target_time: self.target_time,
             };
             Error(kind, t)
         }
     }
 }
 
-enum TransformNeed { Needed, Unneeded, }
+enum TransformNeed {
+    Needed,
+    Unneeded,
+}
 
 impl Context {
     fn new(opt_stamp: Option<File>) -> Result<Context> {
@@ -547,12 +591,11 @@ impl Context {
     }
 
     fn check_transform<X, Y>(&self, t: &Transform<X, Y>) -> check::Result<TransformNeed>
-        where X: ops::Deref<Target=Path> + Mtime,
-              Y: ops::Deref<Target=Path> + Mtime,
+    where
+        X: ops::Deref<Target = Path> + Mtime,
+        Y: ops::Deref<Target = Path> + Mtime,
     {
-
         use self::check::ErrorKind::*;
-
 
         let t_mod = match t.target_time {
             MtimeResult::Modified(t) => t,
@@ -593,10 +636,12 @@ impl Context {
         // to millisecond precision.
 
         match self.orig_stamp {
-            None => return Err(t.error(NoTangoStampExists {
-                src: t.original.display().to_string(),
-                tgt: t.generate.display().to_string(),
-            })),
+            None => {
+                return Err(t.error(NoTangoStampExists {
+                    src: t.original.display().to_string(),
+                    tgt: t.generate.display().to_string(),
+                }))
+            }
             Some((_, stamp_time)) => {
                 let older_at_high_precision = stamp_time < t_mod;
                 let older_at_low_precision = stamp_time.to_ms() < t_mod.to_ms();
@@ -679,17 +724,14 @@ impl Context {
         let lit_path = Path::new(&lit_dir);
 
         fn keep_file_name(p: &Path) -> std::result::Result<(), &'static str> {
-            match p.file_name().and_then(|x|x.to_str()) {
-                None =>
-                    Err("file name is not valid unicode"),
-                Some(s) if s.starts_with('.') =>
-                    Err("file name has leading period"),
-                Some(..) =>
-                    Ok(()),
+            match p.file_name().and_then(|x| x.to_str()) {
+                None => Err("file name is not valid unicode"),
+                Some(s) if s.starts_with('.') => Err("file name has leading period"),
+                Some(..) => Ok(()),
             }
         }
 
-        fn warn_if_nonexistant<M:Mtime+fmt::Debug>(m: &M) -> Result<()> {
+        fn warn_if_nonexistant<M: Mtime + fmt::Debug>(m: &M) -> Result<()> {
             match m.modified() {
                 Err(e) => Err(e),
                 Ok(MtimeResult::Modified(..)) => Ok(()),
@@ -707,7 +749,6 @@ impl Context {
                     Ok(())
                 }
             }
-
         }
 
         // This loop gathers all of the .rs files that currently
@@ -739,9 +780,7 @@ impl Context {
                 Ok(TransformNeed::Unneeded) => {}
                 Err(e) => {
                     println!("gather_inputs err: {}", e.description());
-                    return Err(Error::CheckInputError {
-                        error: e,
-                    })
+                    return Err(Error::CheckInputError { error: e });
                 }
             }
         }
@@ -781,9 +820,7 @@ impl Context {
                 }
                 Err(e) => {
                     println!("gather_inputs err: {}", e.description());
-                    return Err(Error::CheckInputError {
-                        error: e,
-                    })
+                    return Err(Error::CheckInputError { error: e });
                 }
             }
         }
@@ -797,33 +834,55 @@ impl Context {
         Ok(())
     }
     fn generate_content(&mut self) -> Result<()> {
-        for &Transform { ref original, ref generate, source_time, .. } in &self.src_inputs {
+        for &Transform {
+            ref original,
+            ref generate,
+            source_time,
+            ..
+        } in &self.src_inputs
+        {
             let source = try!(File::open(&original.0));
             let target = try!(File::create(&generate.0));
             assert!(source_time > 0);
             println!("generating lit {:?}", &generate.0);
             try!(rs2md(source, target));
             let timestamp = source_time.to_filetime();
-            println!("backdating lit {:?} to {}", &generate.0, source_time.date_fulltime_badly());
+            println!(
+                "backdating lit {:?} to {}",
+                &generate.0,
+                source_time.date_fulltime_badly()
+            );
             try!(set_file_times(&generate.0, timestamp, timestamp));
         }
-        for &mut Transform { ref original, ref generate, ref mut source_time, .. } in &mut self.lit_inputs {
+        for &mut Transform {
+            ref original,
+            ref generate,
+            ref mut source_time,
+            ..
+        } in &mut self.lit_inputs
+        {
             let source = try!(File::open(&original.0));
             let target = try!(File::create(&generate.0));
             assert!(*source_time > 0);
             println!("generating src {:?}", &generate.0);
             try!(md2rs(source, target));
-            println!("backdating src {:?} to {}", &generate.0, source_time.date_fulltime_badly());
-            try!(set_file_times(&generate.0,
-                                source_time.to_filetime(),
-                                source_time.to_filetime()));
+            println!(
+                "backdating src {:?} to {}",
+                &generate.0,
+                source_time.date_fulltime_badly()
+            );
+            try!(set_file_times(
+                &generate.0,
+                source_time.to_filetime(),
+                source_time.to_filetime()
+            ));
             let source = try!(File::open(&original.0));
             let target = try!(File::open(&generate.0));
             match (source.modified(), target.modified()) {
-                (Ok(MtimeResult::Modified(src_time)),
-                 Ok(MtimeResult::Modified(tgt_time))) => {
+                (Ok(MtimeResult::Modified(src_time)), Ok(MtimeResult::Modified(tgt_time))) => {
                     // At this point, we would *like* to assert this:
-                    #[cfg(not_possible_right_now)] assert_eq!(src_time, tgt_time);
+                    #[cfg(not_possible_right_now)]
+                    assert_eq!(src_time, tgt_time);
                     // but it does not work, due to this bug:
                     // https://github.com/alexcrichton/filetime/issues/9
 
@@ -839,25 +898,35 @@ impl Context {
         Ok(())
     }
     fn check_input_timestamps(&mut self) -> Result<()> {
-        for &Transform { ref original, source_time, .. } in &self.src_inputs {
+        for &Transform {
+            ref original,
+            source_time,
+            ..
+        } in &self.src_inputs
+        {
             if let MtimeResult::Modified(new_time) = try!(original.modified()) {
                 if new_time != source_time {
                     return Err(Error::ConcurrentUpdate {
                         path_buf: original.to_path_buf(),
                         old_time: source_time,
                         new_time: new_time,
-                    })
+                    });
                 }
             }
         }
-        for &Transform { ref original, source_time, .. } in &self.lit_inputs {
+        for &Transform {
+            ref original,
+            source_time,
+            ..
+        } in &self.lit_inputs
+        {
             if let MtimeResult::Modified(new_time) = try!(original.modified()) {
                 if new_time != source_time {
                     return Err(Error::ConcurrentUpdate {
                         path_buf: original.to_path_buf(),
                         old_time: source_time,
                         new_time: new_time,
-                    })
+                    });
                 }
             }
         }
@@ -882,12 +951,12 @@ impl Context {
     }
 }
 
-fn rs2md<R:Read, W:Write>(source: R, target: W) -> Result<()> {
+fn rs2md<R: Read, W: Write>(source: R, target: W) -> Result<()> {
     let mut converter = rs2md::Converter::new();
     converter.convert(source, target).map_err(Error::IoError)
 }
 
-fn md2rs<R:Read, W:Write>(source: R, target: W) -> Result<()> {
+fn md2rs<R: Read, W: Write>(source: R, target: W) -> Result<()> {
     let converter = md2rs::Converter::new();
     converter.convert(source, target).map_err(From::from)
 }
@@ -899,8 +968,12 @@ mod rs2md;
 fn encode_to_url(code: &str) -> String {
     use url::percent_encoding as enc;
     // let new_code: String = enc::utf8_percent_encode(code.trim(), enc::QUERY_ENCODE_SET);
-    let new_code: String = enc::utf8_percent_encode(code.trim(), enc::USERINFO_ENCODE_SET).collect();
-    format!("https://play.rust-lang.org/?code={}&version=nightly", new_code)
+    let new_code: String =
+        enc::utf8_percent_encode(code.trim(), enc::USERINFO_ENCODE_SET).collect();
+    format!(
+        "https://play.rust-lang.org/?code={}&version=nightly",
+        new_code
+    )
 }
 
 #[cfg(test)]

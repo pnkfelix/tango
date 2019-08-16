@@ -9,7 +9,7 @@ extern crate walkdir;
 use tango::timestamp::{Timestamp, Timestamped};
 
 use tempdir::TempDir;
-use walkdir::{WalkDir};
+use walkdir::WalkDir;
 
 use std::cell::RefCell;
 use std::convert;
@@ -18,8 +18,8 @@ use std::error::Error;
 use std::fmt;
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
-use std::path::{PathBuf};
-use std::process::{Command};
+use std::path::PathBuf;
+use std::process::Command;
 
 const BINARY_FILENAME: &'static str = "tango";
 const PRESERVE_TEMP_DIRS: bool = false;
@@ -29,8 +29,10 @@ const REJECT_IF_TANGO_AFFECTS_STD_PORTS: bool = false;
 
 fn out_path() -> PathBuf {
     let out_dir = env::var("OUT_DIR").unwrap_or_else(|_| {
-        panic!("tango tests expect `cargo` to set OUT_DIR; \
-                now it does not? Fix me.");
+        panic!(
+            "tango tests expect `cargo` to set OUT_DIR; \
+             now it does not? Fix me."
+        );
     });
     PathBuf::from(&out_dir)
 }
@@ -60,7 +62,10 @@ fn infer_target_binary() -> PathBuf {
 
 thread_local!(static CURRENT_DIR_PREFIX: RefCell<PathBuf> = RefCell::new(PathBuf::new()));
 
-fn within_temp_dir<F, X>(name: &str, f: F) -> X where F: FnOnce() -> X {
+fn within_temp_dir<F, X>(name: &str, f: F) -> X
+where
+    F: FnOnce() -> X,
+{
     let out_path = out_path();
     let mut errors = vec![];
 
@@ -70,8 +75,10 @@ fn within_temp_dir<F, X>(name: &str, f: F) -> X where F: FnOnce() -> X {
         while let Err(e) = fs::create_dir_all(&out_path) {
             fail_count += 1;
             if fail_count > 100 {
-                panic!("failure to create output directory at {:?} due to {}",
-                       &out_path, e);
+                panic!(
+                    "failure to create output directory at {:?} due to {}",
+                    &out_path, e
+                );
             } else {
                 errors.push((e, &out_path));
             }
@@ -79,15 +86,15 @@ fn within_temp_dir<F, X>(name: &str, f: F) -> X where F: FnOnce() -> X {
     }
 
     if errors.len() > 0 {
-        println!("FYI encountered transient errors {:?} during out_path creation.",
-                 errors);
+        println!(
+            "FYI encountered transient errors {:?} during out_path creation.",
+            errors
+        );
     }
 
-
-    let temp_dir = TempDir::new_in(&out_path, name)
-        .unwrap_or_else(|e| {
-            panic!("failure to create temp dir in {:?}: {}", out_path, e);
-        });
+    let temp_dir = TempDir::new_in(&out_path, name).unwrap_or_else(|e| {
+        panic!("failure to create temp dir in {:?}: {}", out_path, e);
+    });
 
     let result = CURRENT_DIR_PREFIX.with(|prefix| {
         *prefix.borrow_mut() = temp_dir.path().to_path_buf();
@@ -119,8 +126,11 @@ fn indent_at_newline(s: &str) -> String {
     r
 }
 
-trait UnwrapOrPanic { type X; fn unwrap_or_panic(self, msg: &str) -> Self::X; }
-impl<X, Y:Error> UnwrapOrPanic for Result<X, Y> {
+trait UnwrapOrPanic {
+    type X;
+    fn unwrap_or_panic(self, msg: &str) -> Self::X;
+}
+impl<X, Y: Error> UnwrapOrPanic for Result<X, Y> {
     type X = X;
     fn unwrap_or_panic(self, s: &str) -> X {
         self.unwrap_or_else(|e| {
@@ -133,18 +143,24 @@ fn setup_src_and_lit_dirs() {
     CURRENT_DIR_PREFIX.with(|p| {
         let p = p.borrow_mut();
         let mut p_src = p.clone();
-	let src_dir = &tango::get_src_dir();
-	let lit_dir = &tango::get_lit_dir();
+        let src_dir = &tango::get_src_dir();
+        let lit_dir = &tango::get_lit_dir();
         p_src.push(src_dir);
         fs::create_dir(p_src).unwrap_or_panic(&format!("failed to create {}", src_dir));
-        if lit_dir == src_dir { return; }
+        if lit_dir == src_dir {
+            return;
+        }
         let mut p_lit = p.clone();
         p_lit.push(lit_dir);
         fs::create_dir(p_lit).unwrap_or_panic(&format!("failed to create {}", lit_dir));
     })
 }
 
-enum Target { Root, Src, Lit }
+enum Target {
+    Root,
+    Src,
+    Lit,
+}
 
 impl Target {
     fn path_buf(&self, filename: &str) -> PathBuf {
@@ -187,8 +203,12 @@ fn touch_file(t: Target, filename: &str, timestamp: Timestamp) -> Result<(), Tan
         #[cfg(unix)]
         () => {
             use std::os::unix::fs::MetadataExt;
-            println!("touch path {} t {:?}  pre: {} ", p.display(), timestamp,
-                     try!(p.metadata()).mtime());
+            println!(
+                "touch path {} t {:?}  pre: {} ",
+                p.display(),
+                timestamp,
+                try!(p.metadata()).mtime()
+            );
         }
     }
     assert!(timestamp > 0);
@@ -203,8 +223,12 @@ fn touch_file(t: Target, filename: &str, timestamp: Timestamp) -> Result<(), Tan
         #[cfg(unix)]
         () => {
             use std::os::unix::fs::MetadataExt;
-            println!("touch path {} t {:?} post: {} ", p.display(), timestamp,
-                     try!(p.metadata()).mtime());
+            println!(
+                "touch path {} t {:?} post: {} ",
+                p.display(),
+                timestamp,
+                try!(p.metadata()).mtime()
+            );
         }
     }
     ret
@@ -233,35 +257,49 @@ fn main() { println!(\"Hello World 2\"); }
 // work-around for lack of stable const fn.
 macro_rules! timestamp {
     ($ms:expr) => {
-        Timestamp { secs: $ms / 1_000,
-                    nsecs: ($ms % 1_000) * 1_000_000 }
-    }
+        Timestamp {
+            secs: $ms / 1_000,
+            nsecs: ($ms % 1_000) * 1_000_000,
+        }
+    };
 }
 
-#[allow(dead_code)] const TIME_A1: Timestamp = timestamp!(1000_000_000);
-#[allow(dead_code)] const TIME_A2: Timestamp = timestamp!(1000_100_000);
-#[allow(dead_code)] const TIME_A3: Timestamp = timestamp!(1000_200_000);
-#[allow(dead_code)] const TIME_B1: Timestamp = timestamp!(2000_000_000);
-#[allow(dead_code)] const TIME_B2: Timestamp = timestamp!(2000_100_000);
-#[allow(dead_code)] const TIME_B3: Timestamp = timestamp!(2000_200_000);
-#[allow(dead_code)] const TIME_C1: Timestamp = timestamp!(3000_000_000);
-#[allow(dead_code)] const TIME_C2: Timestamp = timestamp!(3000_100_000);
-#[allow(dead_code)] const TIME_C3: Timestamp = timestamp!(3000_200_000);
+#[allow(dead_code)]
+const TIME_A1: Timestamp = timestamp!(1000_000_000);
+#[allow(dead_code)]
+const TIME_A2: Timestamp = timestamp!(1000_100_000);
+#[allow(dead_code)]
+const TIME_A3: Timestamp = timestamp!(1000_200_000);
+#[allow(dead_code)]
+const TIME_B1: Timestamp = timestamp!(2000_000_000);
+#[allow(dead_code)]
+const TIME_B2: Timestamp = timestamp!(2000_100_000);
+#[allow(dead_code)]
+const TIME_B3: Timestamp = timestamp!(2000_200_000);
+#[allow(dead_code)]
+const TIME_C1: Timestamp = timestamp!(3000_000_000);
+#[allow(dead_code)]
+const TIME_C2: Timestamp = timestamp!(3000_100_000);
+#[allow(dead_code)]
+const TIME_C3: Timestamp = timestamp!(3000_200_000);
 
 #[derive(Debug)]
 enum TangoRunError {
     IoError(io::Error),
-    SawOutput { stdout_len: usize, stderr_len: usize,
-                stdout: String, stderr: String, combined: String },
+    SawOutput {
+        stdout_len: usize,
+        stderr_len: usize,
+        stdout: String,
+        stderr: String,
+        combined: String,
+    },
 }
 
 impl fmt::Display for TangoRunError {
     fn fmt(&self, w: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            TangoRunError::IoError(_) =>
-                write!(w, "IO error running `tango`"),
-            TangoRunError::SawOutput { .. } =>
-                write!(w, "`tango` should not produce output"),
+            TangoRunError::IoError(_) => write!(w, "IO error running `tango`"),
+            TangoRunError::SawOutput { .. } => write!(w, "`tango` should not produce output"),
         }
     }
 }
@@ -271,15 +309,17 @@ impl Error for TangoRunError {
         match *self {
             TangoRunError::IoError(ref e) => e.description(),
             TangoRunError::SawOutput {
-                stdout_len, stderr_len, stdout: ref o, stderr: ref e, combined: ref c
-            } => {
-                match (stdout_len > 0, stderr_len > 0) {
-                    (true, true) => c,
-                    (true, false) => o,
-                    (false, true) => e,
-                    (false, false) => panic!("did not SawOutput"),
-                }
-            }
+                stdout_len,
+                stderr_len,
+                stdout: ref o,
+                stderr: ref e,
+                combined: ref c,
+            } => match (stdout_len > 0, stderr_len > 0) {
+                (true, true) => c,
+                (true, false) => o,
+                (false, true) => e,
+                (false, false) => panic!("did not SawOutput"),
+            },
         }
     }
 }
@@ -295,24 +335,23 @@ fn run_tango() -> Result<(), TangoRunError> {
         let p = p.borrow_mut();
         let result = infer_target_binary();
         // println!("result {:?}", result);
-        let output = match Command::new(result)
-            .current_dir(&*p)
-            .output() {
-                Ok(o) => o,
-                Err(e) => return Err(TangoRunError::IoError(e)),
-            };
+        let output = match Command::new(result).current_dir(&*p).output() {
+            Ok(o) => o,
+            Err(e) => return Err(TangoRunError::IoError(e)),
+        };
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
-        if REJECT_IF_TANGO_AFFECTS_STD_PORTS &&
-            stdout.len() > 0 || stderr.len() > 0
-        {
+        if REJECT_IF_TANGO_AFFECTS_STD_PORTS && stdout.len() > 0 || stderr.len() > 0 {
             return Err(TangoRunError::SawOutput {
                 stdout_len: stdout.len(),
                 stderr_len: stderr.len(),
                 stdout: format!("output on stdout: `{}`", stdout),
                 stderr: format!("output on stderr: `{}`", stderr),
-                combined: format!("output on stderr: `{err}`, stdout: `{out}`",
-                                  err=stderr, out=stdout),
+                combined: format!(
+                    "output on stderr: `{err}`, stdout: `{out}`",
+                    err = stderr,
+                    out = stdout
+                ),
             });
         } else {
             for line in stdout.lines() {
@@ -327,33 +366,44 @@ fn run_tango() -> Result<(), TangoRunError> {
 }
 
 fn report_dir_contents(prefix: &str) {
-    if !REPORT_DIR_CONTENTS { return; }
+    if !REPORT_DIR_CONTENTS {
+        return;
+    }
     CURRENT_DIR_PREFIX.with(|p| {
         let p = p.borrow_mut();
-        for (i, ent) in WalkDir::new(&*p).into_iter()
-            .enumerate()
-        {
+        for (i, ent) in WalkDir::new(&*p).into_iter().enumerate() {
             match ent {
                 Ok(ent) => {
                     // println!("entry[{}]: {:?}", i, ent.file_name());
-                    println!("{} entry[{}]: {:?}",
-                             prefix, i, ent.path());
+                    println!("{} entry[{}]: {:?}", prefix, i, ent.path());
                     match ent.metadata() {
                         Err(e) => {
-                            println!("{} failed to extract metadata for {:?} due to {:?}",
-                                     prefix, ent.file_name(), e.description());
+                            println!(
+                                "{} failed to extract metadata for {:?} due to {:?}",
+                                prefix,
+                                ent.file_name(),
+                                e.description()
+                            );
                         }
                         Ok(m) => {
                             // println!("{} entry[{}] metadata accessed: {:?}",
                             //          prefix, i, m.accessed());
-                            println!("{} entry[{}] metadata modified: {:?}",
-                                     prefix, i, m.modified().unwrap());
+                            println!(
+                                "{} entry[{}] metadata modified: {:?}",
+                                prefix,
+                                i,
+                                m.modified().unwrap()
+                            );
                         }
                     }
                 }
                 Err(e) => {
-                    println!("{} entry[{}]: error due to {:?}",
-                             prefix, i, e.description());
+                    println!(
+                        "{} entry[{}]: error due to {:?}",
+                        prefix,
+                        i,
+                        e.description()
+                    );
                 }
             }
         }
@@ -368,14 +418,21 @@ struct Test<SETUP, PRE, RUN, POST> {
     post: POST,
 }
 
-fn framework<S, PR, RUN, PO>(test: Test<S, PR, RUN, PO>) -> Result<(), TangoRunError> where
+fn framework<S, PR, RUN, PO>(test: Test<S, PR, RUN, PO>) -> Result<(), TangoRunError>
+where
     S: FnOnce() -> Result<(), TangoRunError>,
-   PR: FnOnce() -> Result<(), TangoRunError>,
-  RUN: FnOnce() -> Result<(), TangoRunError>,
-   PO: FnOnce() -> Result<(), TangoRunError>,
+    PR: FnOnce() -> Result<(), TangoRunError>,
+    RUN: FnOnce() -> Result<(), TangoRunError>,
+    PO: FnOnce() -> Result<(), TangoRunError>,
 {
     within_temp_dir(test.name, move || -> Result<(), TangoRunError> {
-        let Test { name: _, setup, pre, run, post } = test;
+        let Test {
+            name: _,
+            setup,
+            pre,
+            run,
+            post,
+        } = test;
         println!("Setup test");
         setup_src_and_lit_dirs();
         try!(setup());
@@ -450,7 +507,8 @@ fn unstamped_and_src_without_lit() {
             // TODO: check timestamps
             Ok(())
         },
-    }).unwrap_or_panic("test error")
+    })
+    .unwrap_or_panic("test error")
 }
 
 #[test]
@@ -474,7 +532,8 @@ fn unstamped_and_lit_without_src() {
             // TODO: check timestamps
             Ok(())
         },
-    }).unwrap_or_panic("test error")
+    })
+    .unwrap_or_panic("test error")
 }
 
 #[test]
@@ -499,7 +558,8 @@ fn stamp_and_src_without_lit() {
             // TODO: check timestamps
             Ok(())
         },
-    }).unwrap_or_panic("test error")
+    })
+    .unwrap_or_panic("test error")
 }
 
 #[test]
@@ -523,7 +583,8 @@ fn stamp_and_lit_without_src() {
             // TODO: check timestamps
             Ok(())
         },
-    }).unwrap_or_panic("test error")
+    })
+    .unwrap_or_panic("test error")
 }
 
 #[test]
@@ -556,8 +617,9 @@ fn stamped_then_touch_lit() {
             assert!(TIME_B2 == md_t, "md_t: {:?} TIME_B2: {:?}", md_t, TIME_B2);
             // TODO: check contents
             Ok(())
-        }
-    }).unwrap_or_panic("test error")
+        },
+    })
+    .unwrap_or_panic("test error")
 }
 
 #[test]
@@ -592,8 +654,9 @@ fn stamped_then_touch_src() {
             assert!(TIME_B2 == md_t, "md_t: {:?} TIME_B2: {:?}", md_t, TIME_B2);
             // TODO: check contents
             Ok(())
-        }
-    }).unwrap_or_panic("test error")
+        },
+    })
+    .unwrap_or_panic("test error")
 }
 
 #[test]
@@ -641,6 +704,7 @@ fn stamped_then_update_src() {
             try!(f.read_to_string(&mut s));
             assert!(s == HELLO_WORLD2_MD);
             Ok(())
-        }
-    }).unwrap_or_panic("test error")
+        },
+    })
+    .unwrap_or_panic("test error")
 }
