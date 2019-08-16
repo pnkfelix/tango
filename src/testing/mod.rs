@@ -37,14 +37,14 @@ fn compare_lines<'a>(a: &'a str, b: &'a str) -> ComparisonResult<'a> {
             right: b[j],
         });
 
-        for j_ in (j+1)..b.len() {
+        for j_ in (j + 1)..b.len() {
             if a[i] == b[j_] {
                 j = j_;
                 continue;
             }
         }
 
-        for i_ in (i+1)..a.len() {
+        for i_ in (i + 1)..a.len() {
             if a[i_] == b[j] {
                 i = i_;
                 continue;
@@ -78,13 +78,15 @@ fn panic_if_different<'a>(name_a: &str, a: &'a str, name_b: &str, b: &'a str) {
     match compare_lines(a, b) {
         ComparisonResult::LineDifferences(differences) => {
             for difference in differences {
-                println!("lines {lnum} and {rnum} differ:\n{nl:>8}: {l}\n{nr:>8}: {r}",
-                         lnum=difference.left_line_num+1,
-                         rnum=difference.right_line_num+1,
-                         nl=name_a,
-                         l=difference.left,
-                         nr=name_b,
-                         r=difference.right);
+                println!(
+                    "lines {lnum} and {rnum} differ:\n{nl:>8}: {l}\n{nr:>8}: {r}",
+                    lnum = difference.left_line_num + 1,
+                    rnum = difference.right_line_num + 1,
+                    nl = name_a,
+                    l = difference.left,
+                    nr = name_b,
+                    r = difference.right
+                );
             }
             panic!("saw differences");
         }
@@ -92,11 +94,13 @@ fn panic_if_different<'a>(name_a: &str, a: &'a str, name_b: &str, b: &'a str) {
             for line in v {
                 println!("excess line: {}", line);
             }
-            panic!("Content differs:\n{nl:>8}: {l} lines\n{nr:>8}: {r} lines",
-                     nl=name_a,
-                     l=a,
-                     nr=name_b,
-                     r=b);
+            panic!(
+                "Content differs:\n{nl:>8}: {l} lines\n{nr:>8}: {r} lines",
+                nl = name_a,
+                l = a,
+                nr = name_b,
+                r = b
+            );
         }
         ComparisonResult::Ok => {}
     }
@@ -132,26 +136,34 @@ fn core_test_rs2md(rs: &str, md: &str) {
 
 #[test]
 fn test_onetext_md2rs() {
-    core_test_md2rs(test_snippets::ONE_TEXT_LINE_MD,
-                    test_snippets::ONE_TEXT_LINE_RS);
+    core_test_md2rs(
+        test_snippets::ONE_TEXT_LINE_MD,
+        test_snippets::ONE_TEXT_LINE_RS,
+    );
 }
 
 #[test]
 fn test_onetext_rs2md() {
-    core_test_rs2md(test_snippets::ONE_TEXT_LINE_RS,
-                    test_snippets::ONE_TEXT_LINE_MD);
+    core_test_rs2md(
+        test_snippets::ONE_TEXT_LINE_RS,
+        test_snippets::ONE_TEXT_LINE_MD,
+    );
 }
 
 #[test]
 fn test_onerust_md2rs() {
-    core_test_md2rs(test_snippets::ONE_RUST_LINE_MD,
-                    test_snippets::ONE_RUST_LINE_RS);
+    core_test_md2rs(
+        test_snippets::ONE_RUST_LINE_MD,
+        test_snippets::ONE_RUST_LINE_RS,
+    );
 }
 
 #[test]
 fn test_onerust_rs2md() {
-    core_test_rs2md(test_snippets::ONE_RUST_LINE_RS,
-                    test_snippets::ONE_RUST_LINE_MD);
+    core_test_rs2md(
+        test_snippets::ONE_RUST_LINE_RS,
+        test_snippets::ONE_RUST_LINE_MD,
+    );
 }
 
 #[test]
@@ -196,88 +208,114 @@ fn test_hello4_rs2md() {
 
 #[test]
 fn test_prodigal5_md2rs() {
-   core_test_md2rs(test_snippets::PRODIGAL5_MD, test_snippets::HARVEST5_RS);
+    core_test_md2rs(test_snippets::PRODIGAL5_MD, test_snippets::HARVEST5_RS);
 }
 
 #[test]
 fn test_prodigal5return_md2rs() {
-   core_test_rs2md(test_snippets::HARVEST5_RS, test_snippets::RETURN5_MD);
+    core_test_rs2md(test_snippets::HARVEST5_RS, test_snippets::RETURN5_MD);
 }
 
 #[test]
 fn test_hello6_metadata_md2rs() {
-    core_test_md2rs(test_snippets::HELLO6_METADATA_MD,
-                    test_snippets::HELLO6_METADATA_RS);
+    core_test_md2rs(
+        test_snippets::HELLO6_METADATA_MD,
+        test_snippets::HELLO6_METADATA_RS,
+    );
 }
 
 #[test]
 fn test_hello6_metadata_rs2md() {
-    core_test_rs2md(test_snippets::HELLO6_METADATA_RS,
-                    test_snippets::HELLO6_METADATA_MD);
+    core_test_rs2md(
+        test_snippets::HELLO6_METADATA_RS,
+        test_snippets::HELLO6_METADATA_MD,
+    );
 }
 
 #[test]
 fn test_hello7_link_to_play_md2rs() {
-    core_test_md2rs(test_snippets::HELLO7_LINK_TO_PLAY_MD,
-                    test_snippets::HELLO7_LINK_TO_PLAY_RS);
+    core_test_md2rs(
+        test_snippets::HELLO7_LINK_TO_PLAY_MD,
+        test_snippets::HELLO7_LINK_TO_PLAY_RS,
+    );
 }
 
 #[test]
 fn test_hello7_link_to_play_rs2md() {
-    core_test_rs2md(test_snippets::HELLO7_LINK_TO_PLAY_RS,
-                    test_snippets::HELLO7_LINK_TO_PLAY_MD);
+    core_test_rs2md(
+        test_snippets::HELLO7_LINK_TO_PLAY_RS,
+        test_snippets::HELLO7_LINK_TO_PLAY_MD,
+    );
 }
 
 #[test]
 fn test_hello8_link_to_play_md2rs() {
-    core_test_md2rs(test_snippets::HELLO8_LINK_TO_PLAY_MD,
-                    test_snippets::HELLO8_LINK_TO_PLAY_RS);
+    core_test_md2rs(
+        test_snippets::HELLO8_LINK_TO_PLAY_MD,
+        test_snippets::HELLO8_LINK_TO_PLAY_RS,
+    );
 }
 
 #[test]
 fn test_hello8_link_to_play_rs2md() {
-    core_test_rs2md(test_snippets::HELLO8_LINK_TO_PLAY_RS,
-                    test_snippets::HELLO8_LINK_TO_PLAY_MD);
+    core_test_rs2md(
+        test_snippets::HELLO8_LINK_TO_PLAY_RS,
+        test_snippets::HELLO8_LINK_TO_PLAY_MD,
+    );
 }
 
 #[test]
 fn test_hello9_link_to_play_md2rs_warn() {
-    warn_test_md2rs(test_snippets::HELLO9_LINK_TO_PLAY_MD_WARN,
-                    test_snippets::HELLO9_LINK_TO_PLAY_RS);
+    warn_test_md2rs(
+        test_snippets::HELLO9_LINK_TO_PLAY_MD_WARN,
+        test_snippets::HELLO9_LINK_TO_PLAY_RS,
+    );
 }
 
 #[test]
 fn test_hello10_link_to_play_eq_md2rs() {
-    core_test_md2rs(test_snippets::HELLO10_LINK_TO_PLAY_EQ_MD,
-                    test_snippets::HELLO10_LINK_TO_PLAY_EQ_RS);
+    core_test_md2rs(
+        test_snippets::HELLO10_LINK_TO_PLAY_EQ_MD,
+        test_snippets::HELLO10_LINK_TO_PLAY_EQ_RS,
+    );
 }
 
 #[test]
 fn test_hello10_link_to_play_eq_rs2md() {
-    core_test_rs2md(test_snippets::HELLO10_LINK_TO_PLAY_EQ_RS,
-                    test_snippets::HELLO10_LINK_TO_PLAY_EQ_MD);
+    core_test_rs2md(
+        test_snippets::HELLO10_LINK_TO_PLAY_EQ_RS,
+        test_snippets::HELLO10_LINK_TO_PLAY_EQ_MD,
+    );
 }
 
 #[test]
 fn test_hello11_link_to_play_md2rs() {
-    core_test_md2rs(test_snippets::HELLO11_LINK_TO_PLAY_HTML_SEP_MD,
-                    test_snippets::HELLO11_LINK_TO_PLAY_HTML_SEP_RS);
+    core_test_md2rs(
+        test_snippets::HELLO11_LINK_TO_PLAY_HTML_SEP_MD,
+        test_snippets::HELLO11_LINK_TO_PLAY_HTML_SEP_RS,
+    );
 }
 
 #[test]
 fn test_hello11_link_to_play_rs2md() {
-    core_test_rs2md(test_snippets::HELLO11_LINK_TO_PLAY_HTML_SEP_RS,
-                    test_snippets::HELLO11_LINK_TO_PLAY_HTML_SEP_MD);
+    core_test_rs2md(
+        test_snippets::HELLO11_LINK_TO_PLAY_HTML_SEP_RS,
+        test_snippets::HELLO11_LINK_TO_PLAY_HTML_SEP_MD,
+    );
 }
 
 #[test]
 fn test_hello12_link_to_play_md2rs() {
-    core_test_md2rs(test_snippets::HELLO12_LINK_TO_PLAY_MARKDOWN_FOLLOW_MD,
-                    test_snippets::HELLO12_LINK_TO_PLAY_MARKDOWN_FOLLOW_RS);
+    core_test_md2rs(
+        test_snippets::HELLO12_LINK_TO_PLAY_MARKDOWN_FOLLOW_MD,
+        test_snippets::HELLO12_LINK_TO_PLAY_MARKDOWN_FOLLOW_RS,
+    );
 }
 
 #[test]
 fn test_hello12_link_to_play_rs2md() {
-    core_test_rs2md(test_snippets::HELLO12_LINK_TO_PLAY_MARKDOWN_FOLLOW_RS,
-                    test_snippets::HELLO12_LINK_TO_PLAY_MARKDOWN_FOLLOW_MD);
+    core_test_rs2md(
+        test_snippets::HELLO12_LINK_TO_PLAY_MARKDOWN_FOLLOW_RS,
+        test_snippets::HELLO12_LINK_TO_PLAY_MARKDOWN_FOLLOW_MD,
+    );
 }

@@ -10,16 +10,22 @@ pub trait Timestamped {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Ord, Debug)]
-pub struct Timestamp { pub secs: u64, pub nsecs: u64 }
+pub struct Timestamp {
+    pub secs: u64,
+    pub nsecs: u64,
+}
 
 #[allow(non_snake_case)]
-pub fn Timestamp(ms: u64) -> Timestamp  {
+pub fn Timestamp(ms: u64) -> Timestamp {
     Timestamp::new(ms / 1_000, (ms % 1_000) * 1_000_000)
 }
 
 impl Timestamp {
     pub fn new(secs: u64, ns: u64) -> Timestamp {
-        Timestamp { secs: secs, nsecs: ns }
+        Timestamp {
+            secs: secs,
+            nsecs: ns,
+        }
     }
     pub fn to_filetime(&self) -> FileTime {
         assert!(self.nsecs < ::std::u32::MAX as u64);
@@ -61,7 +67,7 @@ impl Timestamp {
             if remain > secs_per_month {
                 remain -= secs_per_month;
             } else {
-                month = Some(i+1); // We count months starting from 1 ...
+                month = Some(i + 1); // We count months starting from 1 ...
                 break;
             }
         }
@@ -79,8 +85,16 @@ impl Timestamp {
         let sec = remain; // ... and likewise count seconds from zero
         let nsec = self.nsecs; // ... et cetera.
 
-        format!("{YEAR:04}-{MONTH:02}-{DAY:02} {HOUR:02}:{MIN:02}:{SEC:02}.{NSEC} (GMT)",
-                YEAR=year, MONTH=month, DAY=day, HOUR=hour, MIN=min, SEC=sec, NSEC=nsec)
+        format!(
+            "{YEAR:04}-{MONTH:02}-{DAY:02} {HOUR:02}:{MIN:02}:{SEC:02}.{NSEC} (GMT)",
+            YEAR = year,
+            MONTH = month,
+            DAY = day,
+            HOUR = hour,
+            MIN = min,
+            SEC = sec,
+            NSEC = nsec
+        )
     }
 }
 
@@ -147,7 +161,7 @@ impl PartialOrd<Timestamp> for Timestamp {
 
 impl Timestamped for fs::Metadata {
     fn timestamp(&self) -> Timestamp {
-        let ft = FileTime::from_last_modification_time( self );
+        let ft = FileTime::from_last_modification_time(self);
         let s = ft.seconds_relative_to_1970();
         let ns = ft.nanoseconds();
         // println!("metadata mtime: {} ns: {}", s, ns);

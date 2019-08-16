@@ -1,5 +1,5 @@
-use std::io::{self, BufRead, Write};
 use super::encode_to_url;
+use std::io::{self, BufRead, Write};
 
 #[derive(Debug)]
 pub struct Converter {
@@ -9,13 +9,19 @@ pub struct Converter {
     meta_note: Option<String>,
 }
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
-enum State { MarkdownFirstLine, MarkdownLines, Rust, }
+enum State {
+    MarkdownFirstLine,
+    MarkdownLines,
+    Rust,
+}
 impl Converter {
     pub fn new() -> Converter {
-        Converter { output_state: State::MarkdownFirstLine,
-                    blank_line_count: 0,
-                    buffered_code: String::new(),
-                    meta_note: None, }
+        Converter {
+            output_state: State::MarkdownFirstLine,
+            blank_line_count: 0,
+            buffered_code: String::new(),
+            meta_note: None,
+        }
     }
 }
 
@@ -36,7 +42,7 @@ enum EffectContext<'a> {
 }
 
 impl Converter {
-    pub fn convert<R:io::Read, W:io::Write>(&mut self, r:R, mut w:W) -> io::Result<()> {
+    pub fn convert<R: io::Read, W: io::Write>(&mut self, r: R, mut w: W) -> io::Result<()> {
         let source = io::BufReader::new(r);
         for line in source.lines() {
             let line = try!(line);
@@ -47,11 +53,8 @@ impl Converter {
 
     pub fn finalize(&mut self, w: &mut Write) -> io::Result<()> {
         match self.output_state {
-            State::Rust =>
-                self.effect(EffectContext::Finalize, Effect::FinisCodeBlock, w),
-            State::MarkdownFirstLine |
-            State::MarkdownLines =>
-                Ok(())
+            State::Rust => self.effect(EffectContext::Finalize, Effect::FinisCodeBlock, w),
+            State::MarkdownFirstLine | State::MarkdownLines => Ok(()),
         }
     }
 
@@ -65,12 +68,9 @@ impl Converter {
                 try!(self.blank_line(w))
             }
             match self.output_state {
-                State::Rust =>
-                    try!(self.transition(w, State::MarkdownFirstLine)),
-                State::MarkdownFirstLine =>
-                    try!(self.transition(w, State::MarkdownLines)),
-                State::MarkdownLines =>
-                    {}
+                State::Rust => try!(self.transition(w, State::MarkdownFirstLine)),
+                State::MarkdownFirstLine => try!(self.transition(w, State::MarkdownLines)),
+                State::MarkdownLines => {}
             }
             if line.trim().is_empty() {
                 Ok(())
@@ -104,12 +104,9 @@ impl Converter {
         } else if line_right.starts_with("//@") {
             let line = &line_right[3..];
             match self.output_state {
-                State::Rust =>
-                    try!(self.transition(w, State::MarkdownFirstLine)),
-                State::MarkdownFirstLine =>
-                    try!(self.transition(w, State::MarkdownLines)),
-                State::MarkdownLines =>
-                {}
+                State::Rust => try!(self.transition(w, State::MarkdownFirstLine)),
+                State::MarkdownFirstLine => try!(self.transition(w, State::MarkdownLines)),
+                State::MarkdownLines => {}
             }
             if line.trim().is_empty() {
                 self.blank_line(w)
@@ -118,9 +115,9 @@ impl Converter {
             }
         } else {
             match self.output_state {
-                State::MarkdownFirstLine |
-                State::MarkdownLines =>
-                    try!(self.transition(w, State::Rust)),
+                State::MarkdownFirstLine | State::MarkdownLines => {
+                    try!(self.transition(w, State::Rust))
+                }
                 _ => {}
             }
             self.nonblank_line(line, w)
