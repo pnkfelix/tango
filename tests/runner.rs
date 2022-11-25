@@ -507,8 +507,8 @@ fn stamp_and_lit_without_src() {
     framework(Test {
         name: "stamp_and_lit_without_src",
         setup: || {
-            (create_file(Target::Root, tango::STAMP, "", TIME_A1));
-            (create_file(Target::Lit, "foo.md", HELLO_WORLD_MD, TIME_B1));
+            (create_file(Target::Root, tango::STAMP, "", TIME_A1))?;
+            (create_file(Target::Lit, "foo.md", HELLO_WORLD_MD, TIME_B1))?;
             Ok(())
         },
         pre: || {
