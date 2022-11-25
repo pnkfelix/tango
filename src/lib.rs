@@ -145,17 +145,6 @@ impl fmt::Display for Error {
 }
 
 impl ErrorTrait for Error {
-    fn description(&self) -> &str {
-        match *self {
-            Error::IoError(ref e) => e.description(),
-            Error::CheckInputError { ref error } => {
-                error.description()
-            }
-            Error::MtimeError(_) => "Modification time check error",
-            Error::ConcurrentUpdate { .. } => "concurrent update",
-            Error::Warnings(_) => "warnings",
-        }
-    }
     fn cause(&self) -> Option<&dyn ErrorTrait> {
         match *self {
             Error::IoError(ref e) => Some(e),
@@ -737,7 +726,7 @@ impl Context {
                 Ok(TransformNeed::Needed) => self.push_src(t),
                 Ok(TransformNeed::Unneeded) => {}
                 Err(e) => {
-                    println!("gather_inputs err: {}", e.description());
+                    println!("gather_inputs err: {}", e);
                     return Err(Error::CheckInputError {
                         error: e,
                     })
@@ -779,7 +768,7 @@ impl Context {
                     // println!("gather-md discard unneeded {:?}", t);;
                 }
                 Err(e) => {
-                    println!("gather_inputs err: {}", e.description());
+                    println!("gather_inputs err: {}", e);
                     return Err(Error::CheckInputError {
                         error: e,
                     })

@@ -8,12 +8,12 @@ pub fn main() {
         while let Some(c) = cause {
             let next_cause = c.cause();
             if next_cause.is_some() {
-                println!("{}, due to", c.description());
+                println!("{}, due to", c);
             } else {
-                println!("root error: {}", c.description());
+                println!("root error: {}", c);
             }
             cause = next_cause;
         }
-        panic!("IO error {}", e.description());
+        panic!("IO error {}", e);
     })
 }
