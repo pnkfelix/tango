@@ -10,7 +10,6 @@ use filetime::set_file_times;
 use walkdir::{WalkDir};
 
 use std::convert;
-use std::env;
 use std::error::Error as ErrorTrait;
 use std::ffi::OsStr;
 use std::fmt;
@@ -234,9 +233,9 @@ impl Mtime for MdPath {
 }
 
 pub fn process_root_with_config(config: Config) -> Result<()> {
-    //let _root = try!(env::current_dir());
+    //let _root = try!(std::env::current_dir());
     //println!("Tango is running from: {:?}", root);
-    //env::set_current_dir(_root).unwrap();
+    //std::env::set_current_dir(_root).unwrap();
     set_lit_dir(config.lit_dir);
     set_src_dir(config.src_dir);
     let emit_rerun_if = config.rerun_if;
@@ -251,7 +250,7 @@ pub fn process_root_with_config(config: Config) -> Result<()> {
 
 
 pub fn process_root() -> Result<()> {
-    //let _root = try!(env::current_dir());
+    //let _root = try!(std::env::current_dir());
     // println!("Tango is running from: {:?}", _root);
 
     let emit_rerun_if = false;
