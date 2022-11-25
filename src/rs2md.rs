@@ -39,8 +39,8 @@ impl Converter {
     pub fn convert<R:io::Read, W:io::Write>(&mut self, r:R, mut w:W) -> io::Result<()> {
         let source = io::BufReader::new(r);
         for line in source.lines() {
-            let line = try!(line);
-            try!(self.handle(&line, &mut w));
+            let line = (line)?;
+            (self.handle(&line, &mut w))?;
         }
         self.finalize(&mut w)
     }
@@ -62,13 +62,13 @@ impl Converter {
         } else if line_right.starts_with("//@ ") {
             let line = &line_right[4..];
             if line.trim().is_empty() {
-                try!(self.blank_line(w))
+                (self.blank_line(w))?
             }
             match self.output_state {
                 State::Rust =>
-                    try!(self.transition(w, State::MarkdownFirstLine)),
+                    (self.transition(w, State::MarkdownFirstLine))?,
                 State::MarkdownFirstLine =>
-                    try!(self.transition(w, State::MarkdownLines)),
+                    (self.transition(w, State::MarkdownLines))?,
                 State::MarkdownLines =>
                     {}
             }
@@ -82,15 +82,15 @@ impl Converter {
             if !line.trim().is_empty() {
                 match self.output_state {
                     State::Rust => {
-                        try!(self.transition(w, State::MarkdownFirstLine));
-                        try!(self.emit_named_code(line.trim(), w));
+                        (self.transition(w, State::MarkdownFirstLine))?;
+                        (self.emit_named_code(line.trim(), w))?;
                     }
                     State::MarkdownFirstLine => {
-                        try!(self.transition(w, State::MarkdownLines));
-                        try!(self.emit_named_code(line.trim(), w));
+                        (self.transition(w, State::MarkdownLines))?;
+                        (self.emit_named_code(line.trim(), w))?;
                     }
                     State::MarkdownLines => {
-                        try!(self.emit_named_code(line.trim(), w));
+                        (self.emit_named_code(line.trim(), w))?;
                     }
                 }
             }
@@ -105,9 +105,9 @@ impl Converter {
             let line = &line_right[3..];
             match self.output_state {
                 State::Rust =>
-                    try!(self.transition(w, State::MarkdownFirstLine)),
+                    (self.transition(w, State::MarkdownFirstLine))?,
                 State::MarkdownFirstLine =>
-                    try!(self.transition(w, State::MarkdownLines)),
+                    (self.transition(w, State::MarkdownLines))?,
                 State::MarkdownLines =>
                 {}
             }
@@ -120,7 +120,7 @@ impl Converter {
             match self.output_state {
                 State::MarkdownFirstLine |
                 State::MarkdownLines =>
-                    try!(self.transition(w, State::Rust)),
+                    (self.transition(w, State::Rust))?,
                 _ => {}
             }
             self.nonblank_line(line, w)
@@ -146,16 +146,16 @@ impl Converter {
             Effect::StartCodeBlock => {
                 if let Some(ref note) = self.meta_note {
                     assert_eq!(note.chars().next(), Some('{'));
-                    try!(writeln!(w, "```{{.rust{}", &note[1..]));
+                    (writeln!(w, "```{{.rust{}", &note[1..]))?;
                 } else {
-                    try!(writeln!(w, "```rust"));
+                    (writeln!(w, "```rust"))?;
                 }
                 self.meta_note = None;
                 self.buffered_code = String::new();
                 Ok(())
             }
             Effect::FinisCodeBlock => {
-                try!(writeln!(w, "```"));
+                (writeln!(w, "```"))?;
                 Ok(())
             }
             Effect::BlankLitComment => writeln!(w, ""),
@@ -164,7 +164,7 @@ impl Converter {
 
     fn nonblank_line(&mut self, line: &str, w: &mut Write) -> io::Result<()> {
         for _ in 0..self.blank_line_count {
-            try!(self.effect(EffectContext::NonblankLine(line), Effect::BlankLn, w));
+            (self.effect(EffectContext::NonblankLine(line), Effect::BlankLn, w))?;
         }
         if State::Rust == self.output_state {
             self.buffered_code = format!("{}\n{}", self.buffered_code, line);
@@ -189,27 +189,27 @@ impl Converter {
         match s {
             State::MarkdownFirstLine => {
                 assert_eq!(self.output_state, State::Rust);
-                try!(self.effect(EffectContext::Transition(s), Effect::FinisCodeBlock, w));
+                (self.effect(EffectContext::Transition(s), Effect::FinisCodeBlock, w))?;
                 for _ in 0..self.blank_line_count {
-                    try!(self.effect(EffectContext::Transition(s), Effect::BlankLn, w));
+                    (self.effect(EffectContext::Transition(s), Effect::BlankLn, w))?;
                 }
                 self.blank_line_count = 0;
             }
             State::MarkdownLines => {
                 assert_eq!(self.output_state, State::MarkdownFirstLine);
                 for _ in 0..self.blank_line_count {
-                    try!(self.effect(EffectContext::Transition(s), Effect::BlankLitComment, w));
+                    (self.effect(EffectContext::Transition(s), Effect::BlankLitComment, w))?;
                 }
                 self.blank_line_count = 0;
             }
             State::Rust => {
                 assert!(self.output_state != State::Rust);
-                try!(self.finish_section(w));
+                (self.finish_section(w))?;
                 for _ in 0..self.blank_line_count {
-                    try!(self.effect(EffectContext::Transition(s), Effect::BlankLn, w));
+                    (self.effect(EffectContext::Transition(s), Effect::BlankLn, w))?;
                 }
                 self.blank_line_count = 0;
-                try!(self.effect(EffectContext::Transition(s), Effect::StartCodeBlock, w));
+                (self.effect(EffectContext::Transition(s), Effect::StartCodeBlock, w))?;
             }
         }
         self.output_state = s;

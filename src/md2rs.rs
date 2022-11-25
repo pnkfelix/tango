@@ -37,8 +37,8 @@ impl Converter {
     pub fn convert<R:io::Read, W:io::Write>(mut self, r:R, mut w:W) -> Result<(), Exception> {
         let source = io::BufReader::new(r);
         for line in source.lines() {
-            let line = try!(line);
-            try!(self.handle(&line, &mut w));
+            let line = (line)?;
+            (self.handle(&line, &mut w))?;
         }
         if self.warnings.is_empty() {
             Ok(())
@@ -56,8 +56,8 @@ impl Converter {
                 self.buffered_lines = String::new();
                 let rest =  &line.chars().skip(7).collect::<String>();
                 if rest != "" {
-                    try!(self.transition(w, State::MarkdownMeta));
-                    try!(self.meta_note(&rest, w));
+                    (self.transition(w, State::MarkdownMeta))?;
+                    (self.meta_note(&rest, w))?;
                 }
                 self.transition(w, State::Rust)
             }
@@ -66,8 +66,8 @@ impl Converter {
                 self.buffered_lines = String::new();
                 let rest =  &line.chars().skip(9).collect::<String>();
                 if rest != "" {
-                    try!(self.transition(w, State::MarkdownMeta));
-                    try!(self.meta_note(&format!(" {{{}", rest), w));
+                    (self.transition(w, State::MarkdownMeta))?;
+                    (self.meta_note(&format!(" {{{}", rest), w))?;
                 }
                 self.transition(w, State::Rust)
             }
@@ -129,14 +129,14 @@ impl Converter {
             State::Rust => ("", ""),
         };
         for _ in 0..self.blank_line_count {
-            try!(writeln!(w, "{}", blank_prefix));
+            (writeln!(w, "{}", blank_prefix))?;
 
         }
         self.blank_line_count = 0;
 
         match self.state {
             State::MarkdownBlank =>
-                try!(self.transition(w, State::MarkdownText)),
+                (self.transition(w, State::MarkdownText))?,
             State::MarkdownMeta |
             State::MarkdownText => {}
             State::Rust => {
@@ -163,7 +163,7 @@ impl Converter {
 
     fn finish_section(&mut self, w: &mut Write) -> io::Result<()> {
         for _ in 0..self.blank_line_count {
-            try!(writeln!(w, ""));
+            (writeln!(w, ""))?;
         }
         self.blank_line_count = 0;
         Ok(())
@@ -173,7 +173,7 @@ impl Converter {
         match s {
             State::MarkdownMeta => {
                 assert!(self.state != State::Rust);
-                try!(self.finish_section(w));
+                (self.finish_section(w))?;
             }
             State::Rust => {
                 assert!(self.state != State::Rust);
@@ -181,11 +181,11 @@ impl Converter {
             }
             State::MarkdownText => {
                 assert_eq!(self.state, State::MarkdownBlank);
-                try!(self.finish_section(w));
+                (self.finish_section(w))?;
             }
             State::MarkdownBlank => {
                 assert_eq!(self.state, State::Rust);
-                try!(self.finish_section(w));
+                (self.finish_section(w))?;
             }
         }
         self.state = s;

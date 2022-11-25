@@ -136,7 +136,7 @@ impl fmt::Display for Error {
                        path_buf.to_string_lossy()),
             Error::Warnings(ref warnings) => {
                 for warn in warnings {
-                    try!(write!(w, "WARNING: {}", warn));
+                    (write!(w, "WARNING: {}", warn))?;
                 }
                 Ok(())
             }
@@ -201,20 +201,20 @@ impl Mtime for File {
         //         return Err(Error::MtimeError(p.to_path_buf()));
         //     }
         // }
-        let m = try!(self.metadata());
+        let m = (self.metadata())?;
         Ok(MtimeResult::Modified(m.timestamp()))
     }
 }
 impl Mtime for fs::DirEntry {
     fn modified(&self) -> Result<MtimeResult> {
-        let m = try!(self.metadata());
+        let m = (self.metadata())?;
         Ok(MtimeResult::Modified(m.timestamp()))
     }
 }
 impl Mtime for RsPath {
     fn modified(&self) -> Result<MtimeResult> {
         if self.0.exists() {
-            let f = try!(File::open(&self.0));
+            let f = (File::open(&self.0))?;
             f.modified()
         } else {
             Ok(MtimeResult::NonExistant)
@@ -224,7 +224,7 @@ impl Mtime for RsPath {
 impl Mtime for MdPath {
     fn modified(&self) -> Result<MtimeResult> {
         if self.0.exists() {
-            let f = try!(File::open(&self.0));
+            let f = (File::open(&self.0))?;
             f.modified()
         } else {
             Ok(MtimeResult::NonExistant)
@@ -233,7 +233,7 @@ impl Mtime for MdPath {
 }
 
 pub fn process_root_with_config(config: Config) -> Result<()> {
-    //let _root = try!(std::env::current_dir());
+    //let _root = (std::env::current_dir())?;
     //println!("Tango is running from: {:?}", root);
     //std::env::set_current_dir(_root).unwrap();
     set_lit_dir(config.lit_dir);
@@ -242,7 +242,7 @@ pub fn process_root_with_config(config: Config) -> Result<()> {
 
     let stamp_path = Path::new(STAMP);
     if stamp_path.exists() {
-        process_with_stamp(try!(File::open(stamp_path)), emit_rerun_if)
+        process_with_stamp((File::open(stamp_path))?, emit_rerun_if)
     } else {
         process_without_stamp(emit_rerun_if)
     }
@@ -250,13 +250,13 @@ pub fn process_root_with_config(config: Config) -> Result<()> {
 
 
 pub fn process_root() -> Result<()> {
-    //let _root = try!(std::env::current_dir());
+    //let _root = (std::env::current_dir())?;
     // println!("Tango is running from: {:?}", _root);
 
     let emit_rerun_if = false;
     let stamp_path = Path::new(STAMP);
     if stamp_path.exists() {
-        process_with_stamp(try!(File::open(stamp_path)), emit_rerun_if)
+        process_with_stamp((File::open(stamp_path))?, emit_rerun_if)
     } else {
         process_without_stamp(emit_rerun_if)
     }
@@ -293,27 +293,27 @@ fn process_with_stamp(stamp: File, emit_rerun_if: bool) -> Result<()> {
     } else {
         panic!("why are we trying to process_with_stamp when given: {:?}", stamp);
     }
-    let mut c = try!(Context::new(Some(stamp)));
+    let mut c = (Context::new(Some(stamp)))?;
     c.emit_rerun_if = emit_rerun_if;
-    try!(c.gather_inputs());
-    try!(c.generate_content());
-    try!(c.check_input_timestamps());
-    try!(c.adjust_stamp_timestamp());
-    // try!(c.report_dir(Path::new(".")));
+    (c.gather_inputs())?;
+    (c.generate_content())?;
+    (c.check_input_timestamps())?;
+    (c.adjust_stamp_timestamp())?;
+    // (c.report_dir(Path::new(".")))?;
     Ok(())
 }
 
 fn process_without_stamp(emit_rerun_if: bool) -> Result<()> {
     println!("Running tango; no previously recorded run");
     println!("\n\nemit rerun if: {:?}\n\n", emit_rerun_if);
-    let mut c = try!(Context::new(None));
+    let mut c = (Context::new(None))?;
     c.emit_rerun_if = emit_rerun_if;
-    try!(c.gather_inputs());
-    try!(c.generate_content());
-    try!(c.check_input_timestamps());
-    try!(c.create_stamp());
-    try!(c.adjust_stamp_timestamp());
-    // try!(c.report_dir(Path::new(".")));
+    (c.gather_inputs())?;
+    (c.generate_content())?;
+    (c.check_input_timestamps())?;
+    (c.create_stamp())?;
+    (c.adjust_stamp_timestamp())?;
+    // (c.report_dir(Path::new(".")))?;
     Ok(())
 }
 
@@ -527,7 +527,7 @@ impl Context {
         let stamp_modified = match opt_stamp {
             None => None,
             Some(stamp) => {
-                let mtime = try!(stamp.modified());
+                let mtime = (stamp.modified())?;
                 let mtime = match mtime {
                     MtimeResult::NonExistant => panic!("impossible"),
                     MtimeResult::Modified(t) => t,
@@ -643,9 +643,9 @@ impl Context {
         let src_path = Path::new(&src_dir);
         let lit_path = Path::new(&lit_dir);
 
-        for (i, ent) in try!(WalkDir::new(p)).enumerate() {
-            let ent = try!(ent);
-            let modified = try!(ent.modified());
+        for (i, ent) in (WalkDir::new(p))?.enumerate() {
+            let ent = (ent)?;
+            let modified = (ent.modified())?;
             println!("entry[{}]: {:?} {:?}", i, ent.path(), modified);
         }
         Ok(())
@@ -715,7 +715,7 @@ impl Context {
 
         // println!("gather-rs");
         for ent in WalkDir::new(src_path).into_iter() {
-            let ent = try!(ent);
+            let ent = (ent)?;
             let p = ent.path();
             if let Err(why) = keep_file_name(p) {
                 println!("skipping {}; {}", p.display(), why);
@@ -726,13 +726,13 @@ impl Context {
                 continue;
             }
             let rs = RsPath::new(p.to_path_buf());
-            try!(warn_if_nonexistant(&rs));
+            (warn_if_nonexistant(&rs))?;
 
             if self.emit_rerun_if {
                 println!("cargo:rerun-if-changed={}", &rs.display());
             }
 
-            let t = try!(rs.transform());
+            let t = (rs.transform())?;
             match self.check_transform(&t) {
                 Ok(TransformNeed::Needed) => self.push_src(t),
                 Ok(TransformNeed::Unneeded) => {}
@@ -752,7 +752,7 @@ impl Context {
         //println!("gather-md, lit_path is: {:?}", lit_path);
         for ent in WalkDir::new(lit_path).into_iter() {
             //println!("ent is {:?}", ent);
-            let ent = try!(ent);
+            let ent = (ent)?;
             let p = ent.path();
             if let Err(why) = keep_file_name(p) {
                 println!("skipping {}; {}", p.display(), why);
@@ -763,13 +763,13 @@ impl Context {
                 continue;
             }
             let md = MdPath::new(p.to_path_buf());
-            try!(warn_if_nonexistant(&md));
+            (warn_if_nonexistant(&md))?;
 
             if self.emit_rerun_if {
                 println!("cargo:rerun-if-changed={}", &md.display());
             }
 
-            let t = try!(md.transform());
+            let t = (md.transform())?;
             match self.check_transform(&t) {
                 Ok(TransformNeed::Needed) => {
                     // println!("gather-md add {:?}", t);;
@@ -797,27 +797,27 @@ impl Context {
     }
     fn generate_content(&mut self) -> Result<()> {
         for &Transform { ref original, ref generate, source_time, .. } in &self.src_inputs {
-            let source = try!(File::open(&original.0));
-            let target = try!(File::create(&generate.0));
+            let source = (File::open(&original.0))?;
+            let target = (File::create(&generate.0))?;
             assert!(source_time > 0);
             println!("generating lit {:?}", &generate.0);
-            try!(rs2md(source, target));
+            (rs2md(source, target))?;
             let timestamp = source_time.to_filetime();
             println!("backdating lit {:?} to {}", &generate.0, source_time.date_fulltime_badly());
-            try!(set_file_times(&generate.0, timestamp, timestamp));
+            (set_file_times(&generate.0, timestamp, timestamp))?;
         }
         for &mut Transform { ref original, ref generate, ref mut source_time, .. } in &mut self.lit_inputs {
-            let source = try!(File::open(&original.0));
-            let target = try!(File::create(&generate.0));
+            let source = (File::open(&original.0))?;
+            let target = (File::create(&generate.0))?;
             assert!(*source_time > 0);
             println!("generating src {:?}", &generate.0);
-            try!(md2rs(source, target));
+            (md2rs(source, target))?;
             println!("backdating src {:?} to {}", &generate.0, source_time.date_fulltime_badly());
-            try!(set_file_times(&generate.0,
+            (set_file_times(&generate.0,
                                 source_time.to_filetime(),
-                                source_time.to_filetime()));
-            let source = try!(File::open(&original.0));
-            let target = try!(File::open(&generate.0));
+                                source_time.to_filetime()))?;
+            let source = (File::open(&original.0))?;
+            let target = (File::open(&generate.0))?;
             match (source.modified(), target.modified()) {
                 (Ok(MtimeResult::Modified(src_time)),
                  Ok(MtimeResult::Modified(tgt_time))) => {
@@ -839,7 +839,7 @@ impl Context {
     }
     fn check_input_timestamps(&mut self) -> Result<()> {
         for &Transform { ref original, source_time, .. } in &self.src_inputs {
-            if let MtimeResult::Modified(new_time) = try!(original.modified()) {
+            if let MtimeResult::Modified(new_time) = (original.modified())? {
                 if new_time != source_time {
                     return Err(Error::ConcurrentUpdate {
                         path_buf: original.to_path_buf(),
@@ -850,7 +850,7 @@ impl Context {
             }
         }
         for &Transform { ref original, source_time, .. } in &self.lit_inputs {
-            if let MtimeResult::Modified(new_time) = try!(original.modified()) {
+            if let MtimeResult::Modified(new_time) = (original.modified())? {
                 if new_time != source_time {
                     return Err(Error::ConcurrentUpdate {
                         path_buf: original.to_path_buf(),
@@ -863,7 +863,7 @@ impl Context {
         Ok(())
     }
     fn create_stamp(&mut self) -> Result<()> {
-        let _f = try!(File::create(STAMP));
+        let _f = (File::create(STAMP))?;
         Ok(())
     }
     fn adjust_stamp_timestamp(&mut self) -> Result<()> {
