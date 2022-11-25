@@ -124,7 +124,7 @@ impl<X, Y:Error> UnwrapOrPanic for Result<X, Y> {
     type X = X;
     fn unwrap_or_panic(self, s: &str) -> X {
         self.unwrap_or_else(|e| {
-            panic!("{} due to {}", s, indent_at_newline(e.description()));
+            panic!("{} due to {}", s, indent_at_newline(&e.to_string()));
         })
     }
 }
@@ -260,29 +260,20 @@ impl fmt::Display for TangoRunError {
         match *self {
             TangoRunError::IoError(_) =>
                 write!(w, "IO error running `tango`"),
-            TangoRunError::SawOutput { .. } =>
-                write!(w, "`tango` should not produce output"),
+            TangoRunError::SawOutput {
+                stdout_len, stderr_len, stdout: ref o, stderr: ref e, combined: ref c
+            } =>
+                match (stdout_len > 0, stderr_len > 0) {
+                    (true, true) => write!(w, "{}", c),
+                    (true, false) => write!(w, "{}", o),
+                    (false, true) => write!(w, "{}", e),
+                    (false, false) => panic!("did not SawOutput"),
+                }
         }
     }
 }
 
-impl Error for TangoRunError {
-    fn description(&self) -> &str {
-        match *self {
-            TangoRunError::IoError(ref e) => e.description(),
-            TangoRunError::SawOutput {
-                stdout_len, stderr_len, stdout: ref o, stderr: ref e, combined: ref c
-            } => {
-                match (stdout_len > 0, stderr_len > 0) {
-                    (true, true) => c,
-                    (true, false) => o,
-                    (false, true) => e,
-                    (false, false) => panic!("did not SawOutput"),
-                }
-            }
-        }
-    }
-}
+impl Error for TangoRunError  { }
 
 impl convert::From<io::Error> for TangoRunError {
     fn from(e: io::Error) -> Self {
@@ -341,7 +332,7 @@ fn report_dir_contents(prefix: &str) {
                     match ent.metadata() {
                         Err(e) => {
                             println!("{} failed to extract metadata for {:?} due to {:?}",
-                                     prefix, ent.file_name(), e.description());
+                                     prefix, ent.file_name(), e);
                         }
                         Ok(m) => {
                             // println!("{} entry[{}] metadata accessed: {:?}",
@@ -353,7 +344,7 @@ fn report_dir_contents(prefix: &str) {
                 }
                 Err(e) => {
                     println!("{} entry[{}]: error due to {:?}",
-                             prefix, i, e.description());
+                             prefix, i, e);
                 }
             }
         }
