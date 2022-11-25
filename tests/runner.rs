@@ -550,7 +550,7 @@ fn stamped_then_touch_lit() {
         post: || {
             assert!(Target::Lit.path_buf("foo.md").exists());
             assert!(Target::Src.path_buf("foo.rs").exists());
-            let rs_t = (Target::Src.path_buf("foo.rs").metadata()).timestamp();
+            let rs_t = (Target::Src.path_buf("foo.rs").metadata())?.timestamp();
             let md_t = (Target::Lit.path_buf("foo.md").metadata())?.timestamp();
             assert!(TIME_B2 == rs_t, "rs_t: {:?} TIME_B2: {:?}", rs_t, TIME_B2);
             assert!(TIME_B2 == md_t, "md_t: {:?} TIME_B2: {:?}", md_t, TIME_B2);
