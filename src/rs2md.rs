@@ -56,7 +56,7 @@ impl Converter {
     }
 
     pub fn handle(&mut self, line: &str, w: &mut dyn Write) -> io::Result<()> {
-        let line_right = line.trim_left();
+        let line_right = line.trim_start();
         if line_right.is_empty() {
             self.blank_line(w)
         } else if line_right.starts_with("//@ ") {
