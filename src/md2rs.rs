@@ -47,7 +47,7 @@ impl Converter {
         }
     }
 
-    pub fn handle(&mut self, line: &str, w: &mut Write) -> io::Result<()> {
+    pub fn handle(&mut self, line: &str, w: &mut dyn Write) -> io::Result<()> {
         let str9 = line.chars().take(9).collect::<String>();
         let str7 = line.chars().take(7).collect::<String>();
         match (self.state, &str7[..], &str9[..]) {
@@ -111,17 +111,17 @@ impl Converter {
         }
     }
 
-    pub fn meta_note(&mut self, note: &str, w: &mut Write) -> io::Result<()> {
+    pub fn meta_note(&mut self, note: &str, w: &mut dyn Write) -> io::Result<()> {
         assert!(note != "");
         self.nonblank_line(note, w)
     }
 
-    pub fn name_block(&mut self, _line: &str, name: &str, w: &mut Write) -> io::Result<()> {
+    pub fn name_block(&mut self, _line: &str, name: &str, w: &mut dyn Write) -> io::Result<()> {
         assert!(name != "");
         writeln!(w, "//@@@ {}", name)
     }
 
-    pub fn nonblank_line(&mut self, line: &str, w: &mut Write) -> io::Result<()> {
+    pub fn nonblank_line(&mut self, line: &str, w: &mut dyn Write) -> io::Result<()> {
         let (blank_prefix, line_prefix) = match self.state {
             State::MarkdownBlank => ("", "//@ "),
             State::MarkdownText => ("//@", "//@ "),
@@ -148,7 +148,7 @@ impl Converter {
         writeln!(w, "{}{}", line_prefix, line)
     }
 
-    fn blank_line(&mut self, _w: &mut Write) -> io::Result<()> {
+    fn blank_line(&mut self, _w: &mut dyn Write) -> io::Result<()> {
         match self.state {
             State::Rust => {
                 self.buffered_lines.push_str("\n");
@@ -161,7 +161,7 @@ impl Converter {
         Ok(())
     }
 
-    fn finish_section(&mut self, w: &mut Write) -> io::Result<()> {
+    fn finish_section(&mut self, w: &mut dyn Write) -> io::Result<()> {
         for _ in 0..self.blank_line_count {
             (writeln!(w, ""))?;
         }
@@ -169,7 +169,7 @@ impl Converter {
         Ok(())
     }
 
-    fn transition(&mut self, w: &mut Write, s: State) -> io::Result<()> {
+    fn transition(&mut self, w: &mut dyn Write, s: State) -> io::Result<()> {
         match s {
             State::MarkdownMeta => {
                 assert!(self.state != State::Rust);

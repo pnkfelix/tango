@@ -45,7 +45,7 @@ impl Converter {
         self.finalize(&mut w)
     }
 
-    pub fn finalize(&mut self, w: &mut Write) -> io::Result<()> {
+    pub fn finalize(&mut self, w: &mut dyn Write) -> io::Result<()> {
         match self.output_state {
             State::Rust =>
                 self.effect(EffectContext::Finalize, Effect::FinisCodeBlock, w),
@@ -55,7 +55,7 @@ impl Converter {
         }
     }
 
-    pub fn handle(&mut self, line: &str, w: &mut Write) -> io::Result<()> {
+    pub fn handle(&mut self, line: &str, w: &mut dyn Write) -> io::Result<()> {
         let line_right = line.trim_left();
         if line_right.is_empty() {
             self.blank_line(w)
@@ -127,7 +127,7 @@ impl Converter {
         }
     }
 
-    fn emit_named_code(&mut self, name: &str, w: &mut Write) -> io::Result<()> {
+    fn emit_named_code(&mut self, name: &str, w: &mut dyn Write) -> io::Result<()> {
         writeln!(w, "[{}]: {}", name, encode_to_url(&self.buffered_code))
     }
 
@@ -138,7 +138,7 @@ impl Converter {
         self.meta_note = Some(note.to_string());
     }
 
-    fn effect(&mut self, _c: EffectContext, e: Effect, w: &mut Write) -> io::Result<()> {
+    fn effect(&mut self, _c: EffectContext, e: Effect, w: &mut dyn Write) -> io::Result<()> {
         // println!("effect _c: {:?} e: {:?}", _c, e);
         match e {
             Effect::BlankLn => writeln!(w, ""),
@@ -162,7 +162,7 @@ impl Converter {
         }
     }
 
-    fn nonblank_line(&mut self, line: &str, w: &mut Write) -> io::Result<()> {
+    fn nonblank_line(&mut self, line: &str, w: &mut dyn Write) -> io::Result<()> {
         for _ in 0..self.blank_line_count {
             (self.effect(EffectContext::NonblankLine(line), Effect::BlankLn, w))?;
         }
@@ -173,7 +173,7 @@ impl Converter {
         self.effect(EffectContext::NonblankLine(line), Effect::WriteLn(line), w)
     }
 
-    fn blank_line(&mut self, _w: &mut Write) -> io::Result<()> {
+    fn blank_line(&mut self, _w: &mut dyn Write) -> io::Result<()> {
         self.blank_line_count += 1;
         if State::Rust == self.output_state {
             self.buffered_code = format!("{}\n", self.buffered_code);
@@ -181,11 +181,11 @@ impl Converter {
         Ok(())
     }
 
-    fn finish_section(&mut self, _w: &mut Write) -> io::Result<()> {
+    fn finish_section(&mut self, _w: &mut dyn Write) -> io::Result<()> {
         Ok(())
     }
 
-    fn transition(&mut self, w: &mut Write, s: State) -> io::Result<()> {
+    fn transition(&mut self, w: &mut dyn Write, s: State) -> io::Result<()> {
         match s {
             State::MarkdownFirstLine => {
                 assert_eq!(self.output_state, State::Rust);

@@ -156,7 +156,7 @@ impl ErrorTrait for Error {
             Error::Warnings(_) => "warnings",
         }
     }
-    fn cause(&self) -> Option<&ErrorTrait> {
+    fn cause(&self) -> Option<&dyn ErrorTrait> {
         match *self {
             Error::IoError(ref e) => Some(e),
             Error::CheckInputError { ref error, .. } => {
