@@ -168,9 +168,9 @@ fn create_file(t: Target, filename: &str, content: &str, timestamp: Timestamp) -
     let p = t.path_buf(filename);
     let p = p.as_path();
     assert!(!p.exists(), "path {:?} should not exist", p);
-    let mut f = try!(File::create(p));
-    try!(write!(f, "{}", content));
-    try!(f.flush());
+    let mut f = (File::create(p))?;
+    (write!(f, "{}", content))?;
+    (f.flush())?;
     drop(f);
     assert!(p.exists(), "path {:?} must now exist", p);
     assert!(timestamp > 0);
@@ -188,14 +188,14 @@ fn touch_file(t: Target, filename: &str, timestamp: Timestamp) -> Result<(), Tan
         () => {
             use std::os::unix::fs::MetadataExt;
             println!("touch path {} t {:?}  pre: {} ", p.display(), timestamp,
-                     try!(p.metadata()).mtime());
+                     (p.metadata())?.mtime());
         }
     }
     assert!(timestamp > 0);
     let ret = timestamp.set_file_times(p).map_err(TangoRunError::IoError);
     let p = t.path_buf(filename);
     let p = p.as_path();
-    // let f = try!(File::open(p));
+    // let f = (File::open(p))?;
     // try!(f.sync_all());
     match () {
         #[cfg(not(unix))]
@@ -204,7 +204,7 @@ fn touch_file(t: Target, filename: &str, timestamp: Timestamp) -> Result<(), Tan
         () => {
             use std::os::unix::fs::MetadataExt;
             println!("touch path {} t {:?} post: {} ", p.display(), timestamp,
-                     try!(p.metadata()).mtime());
+                     (p.metadata())?.mtime());
         }
     }
     ret
@@ -378,18 +378,18 @@ fn framework<S, PR, RUN, PO>(test: Test<S, PR, RUN, PO>) -> Result<(), TangoRunE
         let Test { name: _, setup, pre, run, post } = test;
         println!("Setup test");
         setup_src_and_lit_dirs();
-        try!(setup());
+        (setup())?;
 
         report_dir_contents("before");
         println!("Check pre-conditions");
-        try!(pre());
+        (pre())?;
 
         println!("Run the action");
-        try!(run());
+        (run())?;
 
         report_dir_contents("after");
         println!("Check post-conditions");
-        try!(post());
+        (post())?;
 
         Ok(())
     })
@@ -434,7 +434,7 @@ fn unstamped_and_src_without_lit() {
     framework(Test {
         name: "unstamped_and_src_without_lit",
         setup: || {
-            try!(create_file(Target::Src, "foo.rs", HELLO_WORLD_RS, TIME_B1));
+            (create_file(Target::Src, "foo.rs", HELLO_WORLD_RS, TIME_B1))?;
             Ok(())
         },
         // Check pre-conditions
@@ -458,7 +458,7 @@ fn unstamped_and_lit_without_src() {
     framework(Test {
         name: "unstamped_and_lit_without_src",
         setup: || {
-            try!(create_file(Target::Lit, "foo.md", HELLO_WORLD_MD, TIME_B1));
+            (create_file(Target::Lit, "foo.md", HELLO_WORLD_MD, TIME_B1))?;
             Ok(())
         },
         // Check pre-conditions
@@ -482,8 +482,8 @@ fn stamp_and_src_without_lit() {
     framework(Test {
         name: "stamp_and_src_without_lit",
         setup: || {
-            try!(create_file(Target::Root, tango::STAMP, "", TIME_A1));
-            try!(create_file(Target::Src, "foo.rs", HELLO_WORLD_RS, TIME_B1));
+            (create_file(Target::Root, tango::STAMP, "", TIME_A1))?;
+            (create_file(Target::Src, "foo.rs", HELLO_WORLD_RS, TIME_B1))?;
             Ok(())
         },
         // Check pre-conditions
@@ -507,8 +507,8 @@ fn stamp_and_lit_without_src() {
     framework(Test {
         name: "stamp_and_lit_without_src",
         setup: || {
-            try!(create_file(Target::Root, tango::STAMP, "", TIME_A1));
-            try!(create_file(Target::Lit, "foo.md", HELLO_WORLD_MD, TIME_B1));
+            (create_file(Target::Root, tango::STAMP, "", TIME_A1));
+            (create_file(Target::Lit, "foo.md", HELLO_WORLD_MD, TIME_B1));
             Ok(())
         },
         pre: || {
@@ -531,16 +531,16 @@ fn stamped_then_touch_lit() {
     framework(Test {
         name: "stamped_then_touch_lit",
         setup: || {
-            try!(create_file(Target::Lit, "foo.md", HELLO_WORLD_MD, TIME_B1));
+            (create_file(Target::Lit, "foo.md", HELLO_WORLD_MD, TIME_B1))?;
             assert!(!Target::Src.path_buf("foo.rs").exists());
-            try!(run_tango());
+            (run_tango())?;
             touch_file(Target::Lit, "foo.md", TIME_B2)
         },
         pre: || {
             assert!(Target::Src.path_buf("foo.rs").exists());
             assert!(Target::Lit.path_buf("foo.md").exists());
-            let rs_t = try!(Target::Src.path_buf("foo.rs").metadata()).timestamp();
-            let md_t = try!(Target::Lit.path_buf("foo.md").metadata()).timestamp();
+            let rs_t = (Target::Src.path_buf("foo.rs").metadata())?.timestamp();
+            let md_t = (Target::Lit.path_buf("foo.md").metadata())?.timestamp();
             assert!(TIME_B1 == rs_t, "rs_t: {:?} TIME_B1: {:?}", rs_t, TIME_B1);
             assert!(TIME_B2 == md_t, "md_t: {:?} TIME_B2: {:?}", md_t, TIME_B2);
             assert!(TIME_B2 > TIME_B1);
@@ -550,8 +550,8 @@ fn stamped_then_touch_lit() {
         post: || {
             assert!(Target::Lit.path_buf("foo.md").exists());
             assert!(Target::Src.path_buf("foo.rs").exists());
-            let rs_t = try!(Target::Src.path_buf("foo.rs").metadata()).timestamp();
-            let md_t = try!(Target::Lit.path_buf("foo.md").metadata()).timestamp();
+            let rs_t = (Target::Src.path_buf("foo.rs").metadata()).timestamp();
+            let md_t = (Target::Lit.path_buf("foo.md").metadata())?.timestamp();
             assert!(TIME_B2 == rs_t, "rs_t: {:?} TIME_B2: {:?}", rs_t, TIME_B2);
             assert!(TIME_B2 == md_t, "md_t: {:?} TIME_B2: {:?}", md_t, TIME_B2);
             // TODO: check contents
@@ -565,18 +565,18 @@ fn stamped_then_touch_src() {
     framework(Test {
         name: "stamped_then_touch_src",
         setup: || {
-            try!(create_file(Target::Src, "foo.rs", HELLO_WORLD_RS, TIME_B1));
+            (create_file(Target::Src, "foo.rs", HELLO_WORLD_RS, TIME_B1))?;
             assert!(!Target::Lit.path_buf("foo.md").exists());
-            try!(run_tango());
+            (run_tango())?;
             touch_file(Target::Src, "foo.rs", TIME_B2)
         },
         pre: || {
             assert!(Target::Src.path_buf("foo.rs").exists());
             assert!(Target::Lit.path_buf("foo.md").exists());
             println!("try rs_t");
-            let rs_t = try!(Target::Src.path_buf("foo.rs").metadata()).timestamp();
+            let rs_t = (Target::Src.path_buf("foo.rs").metadata())?.timestamp();
             println!("try md_t");
-            let md_t = try!(Target::Lit.path_buf("foo.md").metadata()).timestamp();
+            let md_t = (Target::Lit.path_buf("foo.md").metadata())?.timestamp();
             assert!(TIME_B1 == md_t, "md_t: {:?} TIME_B1: {:?}", md_t, TIME_B1);
             assert!(TIME_B2 == rs_t, "rs_t: {:?} TIME_B2: {:?}", rs_t, TIME_B2);
             assert!(TIME_B2 > TIME_B1);
@@ -586,8 +586,8 @@ fn stamped_then_touch_src() {
         post: || {
             assert!(Target::Lit.path_buf("foo.md").exists());
             assert!(Target::Src.path_buf("foo.rs").exists());
-            let rs_t = try!(Target::Src.path_buf("foo.rs").metadata()).timestamp();
-            let md_t = try!(Target::Lit.path_buf("foo.md").metadata()).timestamp();
+            let rs_t = (Target::Src.path_buf("foo.rs").metadata())?.timestamp();
+            let md_t = (Target::Lit.path_buf("foo.md").metadata())?.timestamp();
             assert!(TIME_B2 == rs_t, "rs_t: {:?} TIME_B2: {:?}", rs_t, TIME_B2);
             assert!(TIME_B2 == md_t, "md_t: {:?} TIME_B2: {:?}", md_t, TIME_B2);
             // TODO: check contents
@@ -604,13 +604,13 @@ fn stamped_then_update_src() {
             let rs_path = &Target::Src.path_buf("foo.rs");
             let md_path = &Target::Lit.path_buf("foo.md");
             assert!(!md_path.exists());
-            try!(create_file(Target::Lit, "foo.md", HELLO_WORLD_MD, TIME_B1));
+            (create_file(Target::Lit, "foo.md", HELLO_WORLD_MD, TIME_B1))?;
             assert!(!rs_path.exists());
-            try!(run_tango());
+            (run_tango())?;
             assert!(rs_path.exists());
-            let mut f = try!(File::create(rs_path));
-            try!(write!(f, "{}", HELLO_WORLD2_RS));
-            try!(f.flush());
+            let mut f = (File::create(rs_path))?;
+            (write!(f, "{}", HELLO_WORLD2_RS))?;
+            (f.flush())?;
             drop(f);
             touch_file(Target::Src, "foo.rs", TIME_B2)
         },
@@ -619,8 +619,8 @@ fn stamped_then_update_src() {
             let md_path = &Target::Lit.path_buf("foo.md");
             assert!(rs_path.exists());
             assert!(md_path.exists());
-            let rs_t = try!(rs_path.metadata()).timestamp();
-            let md_t = try!(md_path.metadata()).timestamp();
+            let rs_t = (rs_path.metadata())?.timestamp();
+            let md_t = (md_path.metadata())?.timestamp();
             assert!(TIME_B1 == md_t, "md_t: {:?} TIME_B1: {:?}", md_t, TIME_B1);
             assert!(TIME_B2 == rs_t, "rs_t: {:?} TIME_B2: {:?}", rs_t, TIME_B2);
             assert!(TIME_B2 > TIME_B1);
@@ -632,13 +632,13 @@ fn stamped_then_update_src() {
             let md_path = &Target::Lit.path_buf("foo.md");
             assert!(md_path.exists());
             assert!(rs_path.exists());
-            let rs_t = try!(rs_path.metadata()).timestamp();
-            let md_t = try!(md_path.metadata()).timestamp();
+            let rs_t = (rs_path.metadata())?.timestamp();
+            let md_t = (md_path.metadata())?.timestamp();
             assert!(TIME_B2 == rs_t, "rs_t: {:?} TIME_B2: {:?}", rs_t, TIME_B2);
             assert!(TIME_B2 == md_t, "md_t: {:?} TIME_B2: {:?}", md_t, TIME_B2);
-            let mut f = try!(File::open(md_path));
+            let mut f = (File::open(md_path))?;
             let mut s = String::new();
-            try!(f.read_to_string(&mut s));
+            (f.read_to_string(&mut s))?;
             assert!(s == HELLO_WORLD2_MD);
             Ok(())
         }
